@@ -81,12 +81,8 @@ void ICACHE_RAM_ATTR CRSF::sendLinkStatisticsToTX()
 
     outBuffer[LinkStatisticsFrameLength + 3] = crc;
 
-    //memcpy((uint8_t *)CRSFoutBuffer + 1, outBuffer, LinkStatisticsFrameLength + 4);
-    //CRSFoutBuffer[0] = LinkStatisticsFrameLength + 4;
-
     SerialOutFIFO.push(LinkStatisticsFrameLength + 4); // length
     SerialOutFIFO.pushBytes(outBuffer, LinkStatisticsFrameLength + 4);
-    //Serial.println(CRSFoutBuffer[0]);
 }
 
 void ICACHE_RAM_ATTR CRSF::JustSentRFpacket()
@@ -168,7 +164,6 @@ void ICACHE_RAM_ATTR CRSF::sendRCFrameToFC()
     outBuffer[RCframeLength + 3] = crc;
 
     this->_dev->write(outBuffer, RCframeLength + 4);
-    //this->_dev->print(".");
 }
 
 void ICACHE_RAM_ATTR CRSF::ESP8266ReadUart()

@@ -128,7 +128,7 @@ void ICACHE_RAM_ATTR HandleFHSS()
         {
             Radio.SetFrequency(FHSSgetNextFreq());
             Radio.RXnb();
-            crsf.sendLinkStatisticsToFC();
+            //crsf.sendLinkStatisticsToFC();
         }
     }
 }
@@ -281,7 +281,7 @@ void ICACHE_RAM_ATTR ProcessRFPacket()
 
             case 0b00: //Standard RC Data Packet
                 UnpackChannelData_11bit();
-                crsf.sendRCFrameToFC();
+                //crsf.sendRCFrameToFC();
                 break;
 
             case 0b01: // Switch Data Packet
@@ -290,7 +290,7 @@ void ICACHE_RAM_ATTR ProcessRFPacket()
                     UnpackSwitchData();
                     NonceRXlocal = Radio.RXdataBuffer[5];
                     FHSSsetCurrIndex(Radio.RXdataBuffer[6]);
-                    crsf.sendRCFrameToFC();
+                    //crsf.sendRCFrameToFC();
                 }
                 break;
 
@@ -312,12 +312,13 @@ void ICACHE_RAM_ATTR ProcessRFPacket()
                         GotConnection();
                     }
 
-                    // if (ExpressLRS_currAirRate.enum_rate == !(expresslrs_RFrates_e)(Radio.RXdataBuffer[2] & 0b00001111))
-                    // {
-                    //     Serial.println("update air rate");
-                    //     SetRFLinkRate(ExpressLRS_AirRateConfig[Radio.RXdataBuffer[3]]);
-                    //     ExpressLRS_currAirRate = ExpressLRS_AirRateConfig[Radio.RXdataBuffer[3]];
-                    // }
+                    Serial.println((Radio.RXdataBuffer[3] & 0b00000111));
+
+                    if (ExpressLRS_currAirRate.enum_rate != (expresslrs_RFrates_e)(Radio.RXdataBuffer[3] & 0b00000111))
+                    {
+                        Serial.println("update air rate");
+                        SetRFLinkRate(ExpressLRS_AirRateConfig[(Radio.RXdataBuffer[3] & 0b00000111)]);
+                    }
 
                     FHSSsetCurrIndex(Radio.RXdataBuffer[1]);
                     NonceRXlocal = Radio.RXdataBuffer[2];
@@ -434,8 +435,14 @@ void ICACHE_RAM_ATTR sampleButton()
 
     if ((millis() > buttonLastPressed + buttonResetInterval) && buttonDown)
     {
-        //ESP.restart();
-        //Serial.println("Setting Bootloader Bit..");
+        #ifdef PLATFORM_ESP8226
+        ESP.restart();
+        #endif
+
+        #ifdef PLATFORM_STM32
+        HAL_NVIC_SystemReset();
+        #endif
+
     }
 
     buttonPrevValue = buttonValue;
@@ -449,7 +456,7 @@ void ICACHE_RAM_ATTR SetRFLinkRate(expresslrs_mod_settings_s mode) // Set speed 
     HWtimerUpdateInterval(mode.interval);
     LPF_PacketInterval.init(mode.interval);
     LPF_Offset.init(0);
-    InitHarwareTimer();
+    //InitHarwareTimer();
     Radio.RXnb();
 }
 
@@ -529,99 +536,6 @@ void loop()
     {
         LostConnection();
     }
-
-    if ((millis() > (SendLinkStatstoFCintervalLastSent + SendLinkStatstoFCinterval)) && connectionState != disconnected)
-    {
-        //crsf.sendLinkStatisticsToFC();
-        SendLinkStatstoFCintervalLastSent = millis();
-    }
-    // if (millis() > LastSerialDebugPrint + SerialDebugPrintInterval)
-    // { // add stuff here for debug print
-    //     LastSerialDebugPrint = millis();
-    //     Serial.println(linkQuality);
-    //     if (LostConnection)
-    //     {
-    //         Serial.println("-");
-    //     }
-    //     else
-    //     {
-    //         Serial.println("+");
-    //     }
-
-    //     Serial.print(MeasuredHWtimerInterval);
-    //     Serial.print(" ");
-    //     Serial.print(Offset);
-    //     Serial.print(" ");
-    //     Serial.print(HWtimerError);
-
-    //     Serial.print("----");
-
-    //     Serial.print(Offset90);
-    //     Serial.print(" ");
-    //     Serial.print(HWtimerError90);
-    //     Serial.print("----");
-    //     Serial.println(packetCounter);
-    // }
-
-    // if (millis() > (PacketRateLastChecked + PacketRateInterval)) //just some debug data
-    // {
-    //     //     float targetFrameRate;
-
-    //     //     if (ExpressLRS_currAirRate.TLMinterval != 0)
-    //     //     {
-    //     //         targetFrameRate = ExpressLRS_currAirRate.rate - ((ExpressLRS_currAirRate.rate) * (1.0 / ExpressLRS_currAirRate.TLMinterval));
-    //     //     }
-    //     //     else
-    //     //     {
-    //     //         targetFrameRate = ExpressLRS_currAirRate.rate;
-    //     //     }
-
-    //     PacketRateLastChecked = millis();
-    //     //     PacketRate = (float)packetCounter / (float)(PacketRateInterval);
-    //     //     linkQuality = int(((float)PacketRate / (float)targetFrameRate) * 100000.0);
-    //     //     if(linkQuality > 99) linkQuality = 99;
-
-    //     //     CRCerrorRate = (((float)CRCerrorCounter / (float)(PacketRateInterval)) * 100);
-
-    //     //     CRCerrorCounter = 0;
-    //     //     packetCounter = 0;
-
-    //     //     //Serial.println(CRCerrorRate);
-    //     // }
-    //     Serial.print(MeasuredHWtimerInterval);
-    //     Serial.print(" ");
-    //     Serial.print(Offset);
-    //     Serial.print(" ");
-    //     Serial.print(HWtimerError);
-
-    //     Serial.print("----");
-
-    //     Serial.print(Offset90);
-    //     Serial.print(" ");
-    //     Serial.print(HWtimerError90);
-    //     Serial.print("----");
-
-    //Serial.println(linkQuality);
-    //     //Serial.println(packetCounter);
-    // }
-
-    // Serial.print(MeasuredHWtimerInterval);
-    // Serial.print(" ");
-    // Serial.print(" ");
-    // Serial.print(HWtimerError);
-
-    // Serial.print("----");
-
-    // Serial.print(Offset90);
-    // Serial.print(" ");
-    // Serial.print(HWtimerError90);
-    // Serial.print("----");
-    // Serial.println(packetCounter);
-    // delay(200);
-    // Serial.print("LQ: ");
-    // Serial.print(linkQuality);
-    // Serial.print(" Connstate:");
-    // Serial.println(connectionState);
 
     if (millis() > (buttonLastSampled + buttonSampleInterval))
     {
