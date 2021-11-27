@@ -79,6 +79,36 @@ const uint32_t FHSSfreqs[] = {
     FREQ_HZ_TO_REG_VAL(433100000),
     FREQ_HZ_TO_REG_VAL(433925000),
     FREQ_HZ_TO_REG_VAL(434450000)};
+#elif defined Regulatory_Domain_FCC_433
+/* Taken from the AARL 70 CM band plan: http://www.arrl.org/band-plan
+ * Use the Amateur TV Simplex frequencies. 420.00-432.00, 438.00-442.00, 600 KHz spacing
+ * This needs to be double checked.  And you need a ham license to use these frequencies.
+ */
+const uint32_t FHSSfreqs[] = {
+    FREQ_HZ_TO_REG_VAL(420500000),
+    FREQ_HZ_TO_REG_VAL(421100000),
+    FREQ_HZ_TO_REG_VAL(421700000),
+    FREQ_HZ_TO_REG_VAL(422300000),
+    FREQ_HZ_TO_REG_VAL(422900000),
+    FREQ_HZ_TO_REG_VAL(423500000),
+    FREQ_HZ_TO_REG_VAL(424100000),
+    FREQ_HZ_TO_REG_VAL(424700000),
+    FREQ_HZ_TO_REG_VAL(425300000),
+    FREQ_HZ_TO_REG_VAL(425900000),
+    FREQ_HZ_TO_REG_VAL(426500000),
+    FREQ_HZ_TO_REG_VAL(427100000),
+    FREQ_HZ_TO_REG_VAL(427700000),
+    FREQ_HZ_TO_REG_VAL(428300000),
+    FREQ_HZ_TO_REG_VAL(428900000),
+    FREQ_HZ_TO_REG_VAL(429500000),
+    FREQ_HZ_TO_REG_VAL(430100000),
+    FREQ_HZ_TO_REG_VAL(430700000),
+    FREQ_HZ_TO_REG_VAL(431300000),
+    FREQ_HZ_TO_REG_VAL(438800000),
+    FREQ_HZ_TO_REG_VAL(439400000),
+    FREQ_HZ_TO_REG_VAL(440000000),
+    FREQ_HZ_TO_REG_VAL(440600000),
+    FREQ_HZ_TO_REG_VAL(441200000)};
 #elif defined Regulatory_Domain_FCC_915
 /* Very definitely not fully checked. An initial pass at increasing the hops
 */
@@ -273,6 +303,8 @@ void FHSSrandomiseFHSSsequence(const uint32_t seed)
     INFOLN("Setting 433MHz AU Mode");
 #elif defined Regulatory_Domain_EU_433
     INFOLN("Setting 433MHz EU Mode");
+#elif defined Regulatory_Domain_FCC_433
+    INFOLN("Setting 433MHz FCC Mode");
 #elif defined Regulatory_Domain_ISM_2400
     INFOLN("Setting 2400MHz Mode");
 #else
