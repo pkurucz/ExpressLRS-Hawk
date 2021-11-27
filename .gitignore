@@ -4,3 +4,6 @@ oldcode/ESP8266_OStimer.h
 src/firmware.map
 src/src/fhss_freqs.h
 src/.vscode
+src/cscope.*
+src/tags
+*.code-workspace
