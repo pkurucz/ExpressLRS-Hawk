@@ -93,6 +93,9 @@ jobs:
           *2400* | FM30*)
             export REG=-DRegulatory_Domain_ISM_2400
             ;;
+          PK_HAWK_400*)
+            export REG=-DRegulatory_Domain_FCC_433
+            ;;
           *)
             export REG=-DRegulatory_Domain_AU_915
             ;;
