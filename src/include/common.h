@@ -3,12 +3,16 @@
 #ifndef UNIT_TEST
 #include "targets.h"
 
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868)  || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433) || defined(Regulatory_Domain_FCC_433)
+#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868)  || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
 #include "SX127xDriver.h"
 #endif
 
 #if defined(Regulatory_Domain_ISM_2400)
 #include "SX1280Driver.h"
+#endif
+
+#if defined(Regulatory_Domain_FCC_433)
+#include "SX126xDriver.h"
 #endif
 
 #endif // UNIT_TEST
@@ -102,7 +106,7 @@ typedef struct expresslrs_rf_pref_params_s
 } expresslrs_rf_pref_params_s;
 
 #ifndef UNIT_TEST
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433) || defined(Regulatory_Domain_FCC_433)
+#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
 #define RATE_MAX 4
 #define RATE_DEFAULT 0
 #define RATE_BINDING 2 // 50Hz bind mode
@@ -142,6 +146,25 @@ typedef struct expresslrs_mod_settings_s
 
 #endif
 
+#if defined(Regulatory_Domain_FCC_433)
+#define RATE_MAX 4
+#define RATE_DEFAULT 0
+#define RATE_BINDING 2 // 50Hz bind mode
+typedef struct expresslrs_mod_settings_s
+{
+    int8_t index;
+    expresslrs_RFrates_e enum_rate; // Max value of 16 since only 4 bits have been assigned in the sync package.
+    SX126x_Bandwidth bw;
+    SX126x_SpreadingFactor sf;
+    SX126x_CodingRate cr;
+    uint32_t interval;                  // interval in us seconds that corresponds to that frequency
+    expresslrs_tlm_ratio_e TLMinterval; // every X packets is a response TLM packet, should be a power of 2
+    uint8_t FHSShopInterval;            // every X packets we hop to a new frequency. Max value of 16 since only 4 bits have been assigned in the sync package.
+    uint8_t PreambleLen;
+    uint8_t PayloadLength;            // Number of OTA bytes to be sent.
+} expresslrs_mod_settings_t;
+
+#endif
 
 expresslrs_mod_settings_s *get_elrs_airRateConfig(int8_t index);
 expresslrs_rf_pref_params_s *get_elrs_RFperfParams(int8_t index);
