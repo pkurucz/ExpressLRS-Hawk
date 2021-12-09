@@ -2,12 +2,15 @@
 #include "common.h"
 #include "LowPassFilter.h"
 
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433) || defined(Regulatory_Domain_FCC_433)
+#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
 #include "SX127xDriver.h"
 SX127xDriver Radio;
 #elif defined(Regulatory_Domain_ISM_2400)
 #include "SX1280Driver.h"
 SX1280Driver Radio;
+#elif defined(Regulatory_Domain_FCC_433)
+#include "SX126xDriver.h"
+SX126xDriver Radio;
 #else
 #error "Radio configuration is not valid!"
 #endif
@@ -70,7 +73,7 @@ ELRS_EEPROM eeprom;
 RxConfig config;
 Telemetry telemetry;
 
-#ifdef PLATFORM_ESP8266
+#if defined(PLATFORM_ESP8266) || defined(PLATFORM_ESP32)
 unsigned long rebootTime = 0;
 extern bool webserverPreventAutoStart;
 #endif
