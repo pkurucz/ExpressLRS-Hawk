@@ -11,6 +11,11 @@
 #include "SX126xDriver.h"
 #endif
 
+#if defined(PLATFORM_ESP32)
+#include <nvs_flash.h>
+#include <nvs.h>
+#endif
+
 #if defined(TARGET_RX) && ( !defined(MinPower) || !defined(MaxPower) )
     // These are "fake" values as the power on the RX is not user selectable
 	#undef MinPower
@@ -22,6 +27,10 @@
 #if defined(HighPower) && !defined(UNLOCK_HIGHER_POWER)
     #undef MaxPower
     #define MaxPower HighPower
+#endif
+
+#if !defined(DefaultPower)
+    #define DefaultPower PWR_50mW
 #endif
 
 typedef enum
@@ -44,6 +53,10 @@ private:
     static PowerLevels_e CurrentPower;
     static PowerLevels_e FanEnableThreshold;
     static void updateFan();
+#if defined(PLATFORM_ESP32)
+    static nvs_handle  handle;
+#endif
+    static void LoadCalibration();
 
 public:
     static void setPower(PowerLevels_e Power);
@@ -55,4 +68,10 @@ public:
     static void setDefaultPower();
     static void setFanEnableTheshold(PowerLevels_e Power);
     static void init();
+    static void SetPowerCaliValues(int8_t *values, size_t size);
+    static void GetPowerCaliValues(int8_t *values, size_t size);
 };
+
+
+#define CALIBRATION_MAGIC    0x43414C << 8   //['C', 'A', 'L']
+#define CALIBRATION_VERSION   1
