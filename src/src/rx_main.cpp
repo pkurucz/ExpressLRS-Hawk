@@ -38,6 +38,8 @@ SX126xDriver Radio;
 #include "device.h"
 #include "helpers.h"
 #include "devLED.h"
+#include "devOLED.h"
+#include "devBuzzer.h"
 #include "devWIFI.h"
 #include "devButton.h"
 
@@ -54,6 +56,12 @@ device_t *ui_devices[] = {
 #endif
 #ifdef HAS_RGB
   &RGB_device,
+#endif
+#if defined(USE_OLED_SPI) || defined(USE_OLED_SPI_SMALL) || defined(USE_OLED_I2C)
+  &OLED_device,
+#endif
+#ifdef HAS_BUZZER
+  &Buzzer_device,
 #endif
 #ifdef HAS_WIFI
   &WIFI_device,
