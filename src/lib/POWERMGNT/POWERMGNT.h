@@ -11,9 +11,11 @@
 #include "SX126xDriver.h"
 #endif
 
-#if defined(TARGET_RX)
+#if defined(TARGET_RX) && ( !defined(MinPower) || !defined(MaxPower) )
     // These are "fake" values as the power on the RX is not user selectable
+	#undef MinPower
     #define MinPower PWR_10mW
+	#undef MaxPower
     #define MaxPower PWR_10mW
 #endif
 
