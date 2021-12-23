@@ -8,16 +8,24 @@
 class hwTimer
 {
 public:
-    static void init();
-    static void ICACHE_RAM_ATTR resume();
-    static void ICACHE_RAM_ATTR stop();
-    static void ICACHE_RAM_ATTR updateInterval(uint32_t time = TimerIntervalUSDefault);
+	static volatile uint32_t HWtimerInterval;
+	static volatile bool isTick;
+	static volatile int32_t PhaseShift;
+	static volatile int32_t FreqOffset;
+	static volatile bool running;
+	static uint32_t NextTimeout;
 
-    static void (*callbackTock)();
-    static void ICACHE_RAM_ATTR nullCallback(void);
-    static void ICACHE_RAM_ATTR callback();
+	static void init();
+	static void ICACHE_RAM_ATTR stop();
+	static void ICACHE_RAM_ATTR resume();
+	static void ICACHE_RAM_ATTR callback();
+	static void ICACHE_RAM_ATTR updateInterval(uint32_t newTimerInterval = TimerIntervalUSDefault);
+	static void resetFreqOffset();
+	static void incFreqOffset();
+	static void decFreqOffset();
+	static void phaseShift(int32_t newPhaseShift);
 
-    static volatile uint32_t HWtimerInterval;
-    static volatile bool running;
-
+	static void ICACHE_RAM_ATTR nullCallback(void);
+	static void (*callbackTick)();
+	static void (*callbackTock)();
 };
