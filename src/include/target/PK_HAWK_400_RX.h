@@ -2,7 +2,7 @@
 #define DEVICE_NAME "PK HAWK 400 RX"
 
 // Any device features
-#define USE_OLED_I2C
+//#define USE_OLED_I2C
 
 // Output Power
 #define MinPower PWR_10mW
