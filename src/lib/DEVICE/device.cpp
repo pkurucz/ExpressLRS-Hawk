@@ -15,6 +15,10 @@
 #include "SX1280Driver.h"
 #endif
 
+#if defined(Regulatory_Domain_FCC_433)
+#include "SX126xDriver.h"
+#endif
+
 ///////////////////////////////////////
 
 static device_affinity_t *uiDevices;
