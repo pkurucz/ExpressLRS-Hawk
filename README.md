@@ -20,7 +20,7 @@ If you have hardware that you want to flash, please refer to our guides on the [
 ![Stars](https://img.shields.io/github/stars/ExpressLRS/ExpressLRS)
 ![Chat](https://img.shields.io/discord/596350022191415318)
 
-ExpressLRS is an open source RC link for RC applications. It is based on the fantastic semtech **SX127x**/**SX1280** hardware combined with an **ESP8285**, **ESP32** or **STM32**. ExpressLRS supports a wide range of hardware platforms as well as both `900 MHz` and `2.4 GHz` frequency options. ExpressLRS uses **LoRa** modulation as well as reduced packet size to achieve **best in class range and latency** compared to current commercial offerings.
+ExpressLRS is an open source RC link for RC applications. It is based on the fantastic semtech **SX126x**/**SX127x**/**SX1280** hardware combined with an **ESP8285**, **ESP32** or **STM32**. ExpressLRS supports a wide range of hardware platforms as well as both `900 MHz` and `2.4 GHz` frequency options. ExpressLRS uses **LoRa** modulation as well as reduced packet size to achieve **best in class range and latency** compared to current commercial offerings.
 
 ExpressLRS can run at various packet rates, up to `500hz` or down to `25hz` depending on your preference of range or low latency. At `900 MHz` a maximum of `200 Hz` packet rate is supported. At `2.4 GHz` a blistering `500 Hz` is currently supported with a custom openTX binary with future plans to extend this to `1000 Hz`.
 
@@ -39,6 +39,15 @@ More information can be found on the [website](https://www.expresslrs.org/).
 
 
 ## Supported Hardware
+
+### 400 MHz Hardware:
+
+<img src="https://github.com/pkurucz/ExpressLRS-Hardware/blob/master/img/400Mhardware.jpg" width = "80%">
+
+- **TX**
+    - [PK Hawk v1 400Mhz TX](https://github.com/pkurucz/ExpressLRS-Hawk/tree/hawk) (Work in Progress)
+- **RX**
+    - [PK Hawk v1 400Mhz RX](https://github.com/pkurucz/ExpressLRS-Hawk/tree/hawk) (Work in Progress)
 
 ### 900 MHz Hardware:
 
