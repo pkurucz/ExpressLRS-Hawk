@@ -33,7 +33,6 @@
 #include "RadioDriver.h"
 
 PowerLevels_e POWERMGNT::CurrentPower = PWR_COUNT; // default "undefined" initial value
-PowerLevels_e POWERMGNT::FanEnableThreshold = PWR_250mW;
 #if defined(POWER_OUTPUT_VALUES)
 static int16_t powerValues[] = POWER_OUTPUT_VALUES;
 #endif
@@ -189,21 +188,6 @@ void POWERMGNT::setDefaultPower()
     setPower(getDefaultPower());
 }
 
-void POWERMGNT::updateFan()
-{
-#if defined(GPIO_PIN_FAN_EN)
-    digitalWrite(GPIO_PIN_FAN_EN, (CurrentPower >= FanEnableThreshold) ? HIGH : LOW);
-#endif
-}
-
-void POWERMGNT::setFanEnableTheshold(PowerLevels_e Power)
-{
-#if defined(GPIO_PIN_FAN_EN)
-    FanEnableThreshold = Power;
-    updateFan();
-#endif
-}
-
 void POWERMGNT::setPower(PowerLevels_e Power)
 {
     if (Power == CurrentPower)
@@ -241,5 +225,5 @@ void POWERMGNT::setPower(PowerLevels_e Power)
 #error "[ERROR] Unknown power management!"
 #endif
     CurrentPower = Power;
-    updateFan();
+    devicesTriggerEvent();
 }
