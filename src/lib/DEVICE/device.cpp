@@ -7,17 +7,7 @@
 ///////////////////////////////////////
 // Even though we aren't using anything this keeps the PIO dependency analyzer happy!
 
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868)  || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
-#include "SX127xDriver.h"
-#endif
-
-#if defined(Regulatory_Domain_ISM_2400)
-#include "SX1280Driver.h"
-#endif
-
-#if defined(Regulatory_Domain_FCC_433)
-#include "SX126xDriver.h"
-#endif
+#include "RadioDriver.h"
 
 ///////////////////////////////////////
 

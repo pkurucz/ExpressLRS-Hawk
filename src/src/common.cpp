@@ -1,9 +1,8 @@
 #include "common.h"
 
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
+#include "RadioDriver.h"
 
-#include "SX127xDriver.h"
-extern SX127xDriver Radio;
+#if defined(SX127x)
 
 expresslrs_mod_settings_s ExpressLRS_AirRateConfig[RATE_MAX] = {
     {0, RATE_200HZ, SX127x_BW_500_00_KHZ, SX127x_SF_6, SX127x_CR_4_7, 5000, TLM_RATIO_1_64, 4, 8, 8},
@@ -18,10 +17,7 @@ expresslrs_rf_pref_params_s ExpressLRS_AirRateRFperf[RATE_MAX] = {
     {3, RATE_25HZ, -123, 29950, 6000, 4000, 0, 5000}};
 #endif
 
-#if defined(Regulatory_Domain_ISM_2400)
-
-#include "SX1280Driver.h"
-extern SX1280Driver Radio;
+#if defined(SX1280)
 
 expresslrs_mod_settings_s ExpressLRS_AirRateConfig[RATE_MAX] = {
     {0, RATE_500HZ, SX1280_LORA_BW_0800, SX1280_LORA_SF5, SX1280_LORA_CR_LI_4_6, 2000, TLM_RATIO_1_128, 4, 12, 8},
@@ -36,10 +32,7 @@ expresslrs_rf_pref_params_s ExpressLRS_AirRateRFperf[RATE_MAX] = {
     {3, RATE_50HZ, -117, 18443, 4000, 2500, 0, 5000}};
 #endif
 
-#if defined(Regulatory_Domain_FCC_433)
-
-#include "SX126xDriver.h"
-extern SX126xDriver Radio;
+#if defined(SX126x)
 
 expresslrs_mod_settings_s ExpressLRS_AirRateConfig[RATE_MAX] = {
     {0, RATE_200HZ, SX126x_BW_500_00_KHZ, SX126x_SF_6, SX126x_CR_4_7, 5000, TLM_RATIO_1_64, 4, 8, 8},
