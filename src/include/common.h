@@ -1,20 +1,9 @@
 #pragma once
 
+#include "RadioDriver.h"
+
 #ifndef UNIT_TEST
 #include "targets.h"
-
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868)  || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
-#include "SX127xDriver.h"
-#endif
-
-#if defined(Regulatory_Domain_ISM_2400)
-#include "SX1280Driver.h"
-#endif
-
-#if defined(Regulatory_Domain_FCC_433)
-#include "SX126xDriver.h"
-#endif
-
 #endif // UNIT_TEST
 
 extern uint8_t BindingUID[6];
@@ -106,7 +95,8 @@ typedef struct expresslrs_rf_pref_params_s
 } expresslrs_rf_pref_params_s;
 
 #ifndef UNIT_TEST
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
+#if defined(SX127x)
+//#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
 #define RATE_MAX 4
 #define RATE_DEFAULT 0
 #define RATE_BINDING 2 // 50Hz bind mode
@@ -126,7 +116,8 @@ typedef struct expresslrs_mod_settings_s
 
 #endif
 
-#if defined(Regulatory_Domain_ISM_2400)
+#if defined(SX1280)
+//#if defined(Regulatory_Domain_ISM_2400)
 #define RATE_MAX 4
 #define RATE_DEFAULT 0
 #define RATE_BINDING 3 // 50Hz bind mode
@@ -146,7 +137,8 @@ typedef struct expresslrs_mod_settings_s
 
 #endif
 
-#if defined(Regulatory_Domain_FCC_433)
+#if defined(SX126x)
+//#if defined(Regulatory_Domain_FCC_433)
 #define RATE_MAX 4
 #define RATE_DEFAULT 0
 #define RATE_BINDING 2 // 50Hz bind mode

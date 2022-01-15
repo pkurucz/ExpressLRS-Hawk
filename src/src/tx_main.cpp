@@ -1,16 +1,8 @@
 #include "targets.h"
 #include "common.h"
 
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
-#include "SX127xDriver.h"
-SX127xDriver Radio;
-#elif defined(Regulatory_Domain_ISM_2400)
-#include "SX1280Driver.h"
-SX1280Driver Radio;
-#elif defined(Regulatory_Domain_FCC_433)
-#include "SX126xDriver.h"
-SX126xDriver Radio;
-#endif
+#include "RadioDriver.h"
+RadioDriver Radio;
 
 #include "CRSF.h"
 #include "lua.h"
@@ -32,9 +24,7 @@ SX126xDriver Radio;
 #include "devLED.h"
 #include "devScreen.h"
 #include "devBuzzer.h"
-#if !defined(Regulatory_Domain_FCC_433)
 #include "devBLE.h"
-#endif
 #include "devLUA.h"
 #include "devWIFI.h"
 #include "devButton.h"

@@ -2,18 +2,8 @@
 #include "common.h"
 #include "LowPassFilter.h"
 
-#if defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || defined(Regulatory_Domain_FCC_915) || defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433)
-#include "SX127xDriver.h"
-SX127xDriver Radio;
-#elif defined(Regulatory_Domain_ISM_2400)
-#include "SX1280Driver.h"
-SX1280Driver Radio;
-#elif defined(Regulatory_Domain_FCC_433)
-#include "SX126xDriver.h"
-SX126xDriver Radio;
-#else
-#error "Radio configuration is not valid!"
-#endif
+#include "RadioDriver.h"
+RadioDriver Radio;
 
 #include "crc.h"
 #include "CRSF.h"
@@ -38,6 +28,7 @@ SX126xDriver Radio;
 #include "device.h"
 #include "helpers.h"
 #include "devLED.h"
+#include "devBLE.h"
 #include "devScreen.h"
 #include "devBuzzer.h"
 #include "devWIFI.h"
@@ -59,6 +50,9 @@ device_affinity_t ui_devices[] = {
 #endif
 #if defined HAS_TFT_SCREEN || defined(USE_OLED_SPI) || defined(USE_OLED_SPI_SMALL) || defined(USE_OLED_I2C)
   {&Screen_device, 0},
+#endif
+#ifdef HAS_BLE
+  {&BLE_device, 1},
 #endif
 #ifdef HAS_BUZZER
   &Buzzer_device,
