@@ -171,6 +171,17 @@ public:
     void SetPwmChannelRaw(uint8_t ch, uint16_t raw);
     #endif
 
+    // Stubbed in getters and setters to support the generic display code... There's prob a better way to do this.
+    uint8_t GetRate() const { return 0; }
+    uint8_t GetTlm() const { return 0; }
+    uint8_t GetPower() const { return 0; }
+    uint8_t  GetFanMode() const { return 0; }
+    uint8_t  GetMotionMode() const { return 0; }
+    bool GetDynamicPower() const { return 0; }
+    void SetRate(uint8_t rate) const { }
+    void SetPower(uint8_t power) const { }
+    void SetTlm(uint8_t tlm) const { }
+
 private:
     rx_config_t m_config;
     ELRS_EEPROM *m_eeprom;
