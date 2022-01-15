@@ -51,7 +51,7 @@ device_affinity_t ui_devices[] = {
 #if defined HAS_TFT_SCREEN || defined(USE_OLED_SPI) || defined(USE_OLED_SPI_SMALL) || defined(USE_OLED_I2C)
   {&Screen_device, 0},
 #endif
-#ifdef HAS_BLE
+#ifdef HAS_BLUETOOTH
   {&BLE_device, 1},
 #endif
 #ifdef HAS_BUZZER

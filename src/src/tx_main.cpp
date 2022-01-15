@@ -98,7 +98,7 @@ device_affinity_t ui_devices[] = {
   {&RGB_device, 1},
 #endif
   {&LUA_device, 1},
-#ifdef HAS_BLE
+#ifdef HAS_BLUETOOTH
   {&BLE_device, 1},
 #endif
 #ifdef HAS_BUZZER
