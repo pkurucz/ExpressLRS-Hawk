@@ -3,7 +3,6 @@
 // #include "../../src/targets.h"
 #include "SX1262_Regs.h"
 #include "SX1262_hal.h"
-#include "../../src/user_config.h"
 // #include "crsf_protocol.h"
 #include "../OTA/OTA.h"
 

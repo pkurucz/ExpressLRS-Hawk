@@ -22,8 +22,9 @@ Hack around some more by James Kingdon 2021.
 
 #include <stdint.h>
 #include "SX1262_Regs.h"
-
-#include "ElrsSPI.h"
+#ifndef UNIT_TEST
+#include <SPI.h>
+#endif
 
 #ifdef GD32
 #define ICACHE_RAM_ATTR
