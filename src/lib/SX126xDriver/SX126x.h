@@ -36,7 +36,7 @@ public:
     //// Parameters ////
     uint8_t PayloadLength = 8; // Dummy default value which is overwritten during setup.
     uint32_t currFreq = 0; // leave as 0 to ensure that it gets set
-    uint8_t currSyncWord = SX127X_SYNC_WORD;
+    uint8_t currSyncWord = SX126X_SYNC_WORD;
     uint8_t currPreambleLen = 0;
     SX126x_Bandwidth currBW = SX126x_BW_125_00_KHZ; //default values from datasheet
     SX126x_SpreadingFactor currSF = SX126x_SF_7;
