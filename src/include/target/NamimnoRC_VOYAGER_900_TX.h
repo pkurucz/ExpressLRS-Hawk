@@ -23,13 +23,8 @@
 #define GPIO_PIN_BUFFER_OE_INVERTED 1
 #define GPIO_PIN_FAN_EN             PB1
 /* Backpack logger connection */
-#ifdef USE_ESP8266_BACKPACK
-    #define GPIO_PIN_DEBUG_RX       PA10
-    #define GPIO_PIN_DEBUG_TX       PA9
-#else
-    #define GPIO_PIN_DEBUG_RX       PA3
-    #define GPIO_PIN_DEBUG_TX       PA2
-#endif
+#define GPIO_PIN_DEBUG_RX       PA10
+#define GPIO_PIN_DEBUG_TX       PA9
 /* WS2812 led */
 #define GPIO_PIN_LED_WS2812         PB0
 #define GPIO_PIN_LED_WS2812_FAST    PB_0
@@ -38,8 +33,5 @@
 #define POWER_OUTPUT_DAC            0b0001101
 #define MinPower                    PWR_10mW
 #define MaxPower                    PWR_2000mW
-#if defined(Regulatory_Domain_EU_868)
-#define POWER_OUTPUT_VALUES         {500,860,1000,1170,1460,1730,2100,2600}
-#else
 #define POWER_OUTPUT_VALUES         {895,1030,1128,1240,1465,1700,2050,2600}
-#endif
+#define POWER_OUTPUT_VALUES_868     {500,860,1000,1170,1460,1730,2100,2600}

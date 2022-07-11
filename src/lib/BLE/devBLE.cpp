@@ -1,10 +1,8 @@
-#include "common.h"
 #include "devBLE.h"
 
-#if defined(BLUETOOTH)
+#if defined(PLATFORM_ESP32)
 
-#include "RadioDriver.h"
-
+#include "common.h"
 #include "CRSF.h"
 #include "POWERMGNT.h"
 #include "hwTimer.h"
@@ -38,7 +36,7 @@ void BluetoothJoystickUpdateValues()
 
         for (uint8_t i = 0; i < 8; i++)
         {
-            data[i] = map(CRSF::ChannelDataIn[i], CRSF_CHANNEL_VALUE_MIN - 1, CRSF_CHANNEL_VALUE_MAX + 1, -32768, 32768);
+            data[i] = map(CRSF::ChannelData[i], CRSF_CHANNEL_VALUE_MIN - 1, CRSF_CHANNEL_VALUE_MAX + 1, -32768, 32768);
         }
 
         bleGamepad->setX(data[0]);

@@ -1,38 +1,97 @@
 #include "targets.h"
 #include "common.h"
-#include "device.h"
+#include "devLED.h"
 
-#if defined(PLATFORM_ESP32) && defined(GPIO_PIN_LED_WS2812) && (GPIO_PIN_LED_WS2812 != UNDEF_PIN)
-#include <NeoPixelBus.h>
-static constexpr uint16_t PixelCount = 2;
+#ifdef HAS_RGB
+
 #ifdef WS2812_IS_GRB
-static NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(PixelCount, GPIO_PIN_LED_WS2812);
+    #ifndef OPT_WS2812_IS_GRB
+        #define OPT_WS2812_IS_GRB true
+    #endif
 #else
-static NeoPixelBus<NeoRgbFeature, Neo800KbpsMethod> strip(PixelCount, GPIO_PIN_LED_WS2812);
+    #define OPT_WS2812_IS_GRB false
 #endif
 
-void WS281Binit()
-{
-    strip.Begin();
-}
-
-void WS281BsetLED(uint32_t color)
-{
-    strip.ClearTo(RgbColor(HtmlColor(color)));
-    strip.Show();
-}
+#if defined(PLATFORM_STM32) && defined(GPIO_PIN_LED_WS2812)
+#ifndef GPIO_PIN_LED_WS2812_FAST
+#error "WS2812 support requires _FAST pin!"
 #endif
 
-#if defined(PLATFORM_STM32) && (GPIO_PIN_LED_WS2812 != UNDEF_PIN) && (GPIO_PIN_LED_WS2812_FAST != UNDEF_PIN)
 #include "STM32F3_WS2812B_LED.h"
+
+#if !defined(WS2812_PIXEL_COUNT)
+#define WS2812_PIXEL_COUNT 1
 #endif
-
-
-#if defined(GPIO_PIN_LED_WS2812) && (GPIO_PIN_LED_WS2812 != UNDEF_PIN)
+constexpr uint8_t pixelCount = WS2812_PIXEL_COUNT;
+static uint8_t statusLEDs[] = { 0 };
+static uint8_t *bootLEDs = statusLEDs;
+#endif
 
 #include "logging.h"
 #include "crsf_protocol.h"
 #include "POWERMGNT.h"
+
+#if (defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)) && defined(GPIO_PIN_LED_WS2812)
+
+#include <NeoPixelBus.h>
+
+static uint8_t pixelCount;
+static uint8_t *statusLEDs;
+static uint8_t *vtxStatusLEDs;
+static uint8_t *bootLEDs;
+
+#if defined(PLATFORM_ESP32)
+    #define METHOD Neo800KbpsMethod
+#elif defined(PLATFORM_ESP8266)
+    #define METHOD NeoEsp8266Uart1800KbpsMethod
+#endif
+
+static NeoPixelBus<NeoGrbFeature, METHOD> *stripgrb;
+static NeoPixelBus<NeoRgbFeature, METHOD> *striprgb;
+
+void WS281Binit()
+{
+    if (OPT_WS2812_IS_GRB)
+    {
+        stripgrb = new NeoPixelBus<NeoGrbFeature, METHOD>(pixelCount, GPIO_PIN_LED_WS2812);
+        stripgrb->Begin();
+        stripgrb->ClearTo(RgbColor(0), 0, pixelCount-1);
+        stripgrb->Show();
+    }
+    else
+    {
+        striprgb = new NeoPixelBus<NeoRgbFeature, METHOD> (pixelCount, GPIO_PIN_LED_WS2812);
+        striprgb->Begin();
+        striprgb->ClearTo(RgbColor(0), 0, pixelCount-1);
+        striprgb->Show();
+    }
+}
+
+void WS281BsetLED(uint32_t color)
+{
+    for (int i=0 ; i<sizeof(statusLEDs) ; i++)
+    {
+        if (OPT_WS2812_IS_GRB)
+        {
+            stripgrb->SetPixelColor(statusLEDs[i], RgbColor(HtmlColor(color)));
+            stripgrb->Show();
+        }
+        else
+        {
+            striprgb->SetPixelColor(statusLEDs[i], RgbColor(HtmlColor(color)));
+            striprgb->Show();
+        }
+    }
+    if (OPT_WS2812_IS_GRB)
+    {
+        stripgrb->Show();
+    }
+    else
+    {
+        striprgb->Show();
+    }
+}
+#endif
 
 #if defined(TARGET_RX)
 extern bool InBindingMode;
@@ -43,7 +102,7 @@ typedef struct {
   uint8_t h, s, v;
 } blinkyColor_t;
 
-uint32_t HsvToRgb(blinkyColor_t &blinkyColor)
+uint32_t HsvToRgb(const blinkyColor_t &blinkyColor)
 {
     uint8_t region, remainder, p, q, t;
 
@@ -101,9 +160,6 @@ void brightnessFadeLED(blinkyColor_t &blinkyColor, uint8_t start, uint8_t end)
 void hueFadeLED(blinkyColor_t &blinkyColor, uint16_t start, uint16_t end, uint8_t lightness, uint8_t count)
 {
     static bool hueMode = true;
-    static uint16_t hue = 0;
-    static int8_t dir = 1;
-    static uint8_t counter = 0;
 
     if (!hueMode)
     {
@@ -116,6 +172,8 @@ void hueFadeLED(blinkyColor_t &blinkyColor, uint16_t start, uint16_t end, uint8_
     }
     else
     {
+        static uint16_t hue = 0;
+        static int8_t dir = 1;
         if (start < end)
         {
             if (hue <= start)
@@ -149,6 +207,7 @@ void hueFadeLED(blinkyColor_t &blinkyColor, uint16_t start, uint16_t end, uint8_
         hue += dir;
         if (count != 0 && hue == start)
         {
+            static uint8_t counter = 0;
             counter++;
             if (counter >= count)
             {
@@ -185,24 +244,60 @@ constexpr uint8_t LEDSEQ_MODEL_MISMATCH[] = { 10, 10, 10, 10, 10, 100 };   // 3x
 
 #define NORMAL_UPDATE_INTERVAL 50
 
-constexpr uint8_t rate_hue[RATE_MAX] =
-{
-    170,     // 500/200 hz  blue
-    85,      // 250/100 hz  green
-    21,      // 150/50 hz   orange
-    0        // 50/25 hz    red
-};
-
 static blinkyColor_t blinkyColor;
 
 static int blinkyUpdate() {
     static constexpr uint8_t hueStepValue = 1;
     static constexpr uint8_t lightnessStep = 5;
 
-    WS281BsetLED(HsvToRgb(blinkyColor));
+    if (pixelCount == 1)
+    {
+        WS281BsetLED(HsvToRgb(blinkyColor));
+    }
+    #if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
+    else
+    {
+        blinkyColor_t c = blinkyColor;
+        for (int i=0 ; i<sizeof(bootLEDs) ; i++)
+        {
+            c.h += 16;//256/sizeof(bootLEDs);
+            if (OPT_WS2812_IS_GRB)
+            {
+                stripgrb->SetPixelColor(bootLEDs[i], RgbColor(HtmlColor(HsvToRgb(c))));
+            }
+            else
+            {
+                striprgb->SetPixelColor(bootLEDs[i], RgbColor(HtmlColor(HsvToRgb(c))));
+            }
+        }
+        if (OPT_WS2812_IS_GRB)
+        {
+            stripgrb->Show();
+        }
+        else
+        {
+            striprgb->Show();
+        }
+    }
+    #endif
     if ((int)blinkyColor.h + hueStepValue > 255) {
         if ((int)blinkyColor.v - lightnessStep < 0) {
             blinkyState = NORMAL;
+            #if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
+            if (pixelCount != 1)
+            {
+                if (OPT_WS2812_IS_GRB)
+                {
+                    stripgrb->ClearTo(RgbColor(0), 0, pixelCount-1);
+                    stripgrb->Show();
+                }
+                else
+                {
+                    striprgb->ClearTo(RgbColor(0), 0, pixelCount-1);
+                    striprgb->Show();
+                }
+            }
+            #endif
             return NORMAL_UPDATE_INTERVAL;
         }
         blinkyColor.v -= lightnessStep;
@@ -214,14 +309,62 @@ static int blinkyUpdate() {
 
 static void initialize()
 {
-    WS281Binit();
-    blinkyColor.h = 0;
-    blinkyColor.s = 255;
-    blinkyColor.v = 128;
+    if (GPIO_PIN_LED_WS2812 != UNDEF_PIN)
+    {
+        #if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
+        pixelCount = 1;
+        int count = WS2812_STATUS_LEDS_COUNT;
+        if (count == 0)
+        {
+            statusLEDs = new uint8_t[1];
+            statusLEDs[0] = 0;
+        }
+        else
+        {
+            statusLEDs = new uint8_t[count];
+            for (int i=0 ; i<count ; i++)
+            {
+                statusLEDs[i] = WS2812_STATUS_LEDS[i];
+                pixelCount = max((int)pixelCount, statusLEDs[i]+1);
+            }
+        }
+
+        count = WS2812_VTX_STATUS_LEDS_COUNT;
+        vtxStatusLEDs = new uint8_t[count];
+        for (int i=0 ; i<count ; i++)
+        {
+            vtxStatusLEDs[i] = WS2812_VTX_STATUS_LEDS[i];
+            pixelCount = max((int)pixelCount, vtxStatusLEDs[i]+1);
+        }
+
+        count = WS2812_BOOT_LEDS_COUNT;
+        if (count == 0)
+        {
+            bootLEDs = statusLEDs;
+        }
+        else
+        {
+            bootLEDs = new uint8_t[count];
+            for (int i=0 ; i<count ; i++)
+            {
+                bootLEDs[i] = WS2812_BOOT_LEDS[i];
+                pixelCount = max((int)pixelCount, bootLEDs[i]+1);
+            }
+        }
+        #endif
+        WS281Binit();
+        blinkyColor.h = 0;
+        blinkyColor.s = 255;
+        blinkyColor.v = 128;
+    }
 }
 
 static int start()
 {
+    if (GPIO_PIN_LED_WS2812 == UNDEF_PIN)
+    {
+        return DURATION_NEVER;
+    }
     blinkyState = STARTUP;
     #ifdef PLATFORM_ESP32
     // Only do the blinkies if it was NOT a software reboot
@@ -235,6 +378,10 @@ static int start()
 
 static int timeout()
 {
+    if (GPIO_PIN_LED_WS2812 == UNDEF_PIN)
+    {
+        return DURATION_NEVER;
+    }
     if (blinkyState == STARTUP && connectionState < FAILURE_STATES)
     {
         return blinkyUpdate();
@@ -257,13 +404,13 @@ static int timeout()
             }
         #endif
         // Set the color and we're done!
-        blinkyColor.h = rate_hue[ExpressLRS_currAirRate_Modparams->index];
+        blinkyColor.h = ExpressLRS_currAirRate_Modparams->index * 256 / RATE_MAX;
         blinkyColor.v = fmap(POWERMGNT::currPower(), 0, PWR_COUNT-1, 10, 128);
         WS281BsetLED(HsvToRgb(blinkyColor));
         return DURATION_NEVER;
     case tentative:
         // Set the color and we're done!
-        blinkyColor.h = rate_hue[ExpressLRS_currAirRate_Modparams->index];
+        blinkyColor.h = ExpressLRS_currAirRate_Modparams->index * 256 / RATE_MAX;
         blinkyColor.v = fmap(POWERMGNT::currPower(), 0, PWR_COUNT-1, 10, 50);
         WS281BsetLED(HsvToRgb(blinkyColor));
         return DURATION_NEVER;
@@ -273,7 +420,7 @@ static int timeout()
             return flashLED(blinkyColor, 192, 0, LEDSEQ_DISCONNECTED, sizeof(LEDSEQ_DISCONNECTED));
         #endif
         #if defined(TARGET_TX)
-            blinkyColor.h = rate_hue[ExpressLRS_currAirRate_Modparams->index];
+            blinkyColor.h = ExpressLRS_currAirRate_Modparams->index * 256 / RATE_MAX;
             brightnessFadeLED(blinkyColor, 0, 64);
             return NORMAL_UPDATE_INTERVAL;
         #endif
@@ -299,12 +446,6 @@ device_t RGB_device = {
     .start = start,
     .event = timeout,
     .timeout = timeout
-};
-
-#else
-
-device_t RGB_device = {
-    NULL
 };
 
 #endif
