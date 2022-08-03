@@ -184,6 +184,7 @@ void reset_into_bootloader(void);
 void EnterBindingMode();
 void ExitBindingMode();
 void OnELRSBindMSP(uint8_t* packet);
+extern void setWifiUpdateMode();
 
 static uint8_t minLqForChaos()
 {
@@ -503,23 +504,27 @@ void ICACHE_RAM_ATTR HWtimerCallbackTick() // this is 180 out of phase with the 
 
 //////////////////////////////////////////////////////////////
 // flip to the other antenna
-// no-op if GPIO_PIN_ANTENNA_SELECT not defined
+// no-op if GPIO_PIN_ANT_CTRL not defined
 static inline void switchAntenna()
 {
-    if (GPIO_PIN_ANTENNA_SELECT != UNDEF_PIN && config.GetAntennaMode() == 2)
+    if (GPIO_PIN_ANT_CTRL != UNDEF_PIN && config.GetAntennaMode() == 2)
     {
         // 0 and 1 is use for gpio_antenna_select
         // 2 is diversity
         antenna = !antenna;
         (antenna == 0) ? LPF_UplinkRSSI0.reset() : LPF_UplinkRSSI1.reset(); // discard the outdated value after switching
-        digitalWrite(GPIO_PIN_ANTENNA_SELECT, antenna);
+        digitalWrite(GPIO_PIN_ANT_CTRL, antenna);
+        if (GPIO_PIN_ANT_CTRL_COMPL != UNDEF_PIN)
+        {
+            digitalWrite(GPIO_PIN_ANT_CTRL_COMPL, !antenna);
+        }
     }
 }
 
 static void ICACHE_RAM_ATTR updateDiversity()
 {
 
-    if (GPIO_PIN_ANTENNA_SELECT != UNDEF_PIN)
+    if (GPIO_PIN_ANT_CTRL != UNDEF_PIN)
     {
         if(config.GetAntennaMode() == 2)
         {
@@ -575,7 +580,11 @@ static void ICACHE_RAM_ATTR updateDiversity()
         }
         else
         {
-            digitalWrite(GPIO_PIN_ANTENNA_SELECT, config.GetAntennaMode());
+            digitalWrite(GPIO_PIN_ANT_CTRL, config.GetAntennaMode());
+            if (GPIO_PIN_ANT_CTRL_COMPL != UNDEF_PIN)
+            {
+                digitalWrite(GPIO_PIN_ANT_CTRL_COMPL, !config.GetAntennaMode());
+            }
             antenna = config.GetAntennaMode();
         }
     }
@@ -925,7 +934,7 @@ void MspReceiveComplete()
         // The MSP packet needs to be ACKed so the TX doesn't
         // keep sending it, so defer the switch to wifi
         deferExecution(500, []() {
-            connectionState = wifiUpdate;
+            setWifiUpdateMode();
         });
 #endif
     }
@@ -1073,11 +1082,17 @@ static void setupConfigAndPocCheck()
 
 static void setupTarget()
 {
-    if (GPIO_PIN_ANTENNA_SELECT != UNDEF_PIN)
+    if (GPIO_PIN_ANT_CTRL != UNDEF_PIN)
     {
-        pinMode(GPIO_PIN_ANTENNA_SELECT, OUTPUT);
-        digitalWrite(GPIO_PIN_ANTENNA_SELECT, LOW);
+        pinMode(GPIO_PIN_ANT_CTRL, OUTPUT);
+        digitalWrite(GPIO_PIN_ANT_CTRL, LOW);
+        if (GPIO_PIN_ANT_CTRL_COMPL != UNDEF_PIN)
+        {
+            pinMode(GPIO_PIN_ANT_CTRL_COMPL, OUTPUT);
+            digitalWrite(GPIO_PIN_ANT_CTRL_COMPL, HIGH);
+        }
     }
+
 #if defined(TARGET_RX_FM30_MINI)
     pinMode(GPIO_PIN_UART1TX_INVERT, OUTPUT);
     digitalWrite(GPIO_PIN_UART1TX_INVERT, LOW);
@@ -1200,7 +1215,7 @@ static void cycleRfMode(unsigned long now)
         // Display the current air rate to the user as an indicator something is happening
         scanIndex++;
         Radio.RXnb();
-        INFOLN("%u", ExpressLRS_currAirRate_Modparams->interval);
+        DBGLN("%u", ExpressLRS_currAirRate_Modparams->interval);
 
         // Switch to FAST_SYNC if not already in it (won't be if was just connected)
         RFmodeCycleMultiplier = 1;
@@ -1614,4 +1629,3 @@ void ICACHE_RAM_ATTR OnELRSBindMSP(uint8_t* newUid4)
 
     // EEPROM commit will happen on the main thread in ExitBindingMode()
 }
-
