@@ -1,241 +1,410 @@
-#ifndef UNIT_TEST
+/*
+  ______                              _
+ / _____)             _              | |
+( (____  _____ ____ _| |_ _____  ____| |__
+ \____ \| ___ |    (_   _) ___ |/ ___)  _ \
+ _____) ) ____| | | || |_| ____( (___| | | |
+(______/|_____)_|_|_| \__)_____)\____)_| |_|
+    (C)2016 Semtech
 
+Description: Handling of the node configuration protocol
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+
+Maintainer: Miguel Luis, Gregory Cristian and Matthieu Verdy
+
+Modified and adapted by Alessandro Carcione for ELRS project
+*/
+
+#ifndef UNIT_TEST
+#include "SX126xRegs.h"
 #include "SX126xHal.h"
+#include <SPI.h>
 #include "logging.h"
 
 SX126xHal *SX126xHal::instance = NULL;
 
 SX126xHal::SX126xHal()
 {
-  instance = this;
+    instance = this;
 }
 
 void SX126xHal::end()
 {
-  RXenable(); // make sure the TX amp pin is disabled
-  detachInterrupt(GPIO_PIN_DIO0);
-  SPI.end();
-  IsrCallback = nullptr; // remove callbacks
+    TXRXdisable(); // make sure the RX/TX amp pins are disabled
+    detachInterrupt(GPIO_PIN_DIO1);
+    if (GPIO_PIN_DIO1_2 != UNDEF_PIN)
+    {
+        detachInterrupt(GPIO_PIN_DIO1_2);
+    }
+    SPI.end();
+    IsrCallback_1 = nullptr; // remove callbacks
+    IsrCallback_2 = nullptr; // remove callbacks
 }
 
 void SX126xHal::init()
 {
-  DBGLN("Hal Init");
+    DBGLN("Hal Init");
+    if (GPIO_PIN_BUSY != UNDEF_PIN)
+    {
+        pinMode(GPIO_PIN_BUSY, INPUT);
+    }
+    if (GPIO_PIN_BUSY_2 != UNDEF_PIN)
+    {
+        pinMode(GPIO_PIN_BUSY_2, INPUT);
+    }
 
-#if defined(GPIO_PIN_PA_ENABLE) && (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
-    DBGLN("Use PA ctrl pin: %d", GPIO_PIN_PA_ENABLE);
-    pinMode(GPIO_PIN_PA_ENABLE, OUTPUT);
-    digitalWrite(GPIO_PIN_PA_ENABLE, LOW);
-#endif
+    pinMode(GPIO_PIN_DIO1, INPUT);
+    if (GPIO_PIN_DIO1_2 != UNDEF_PIN)
+    {
+        pinMode(GPIO_PIN_DIO1_2, INPUT);
+    }
 
-#if defined(GPIO_PIN_TX_ENABLE) && (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
-    DBGLN("Use TX pin: %d", GPIO_PIN_TX_ENABLE);
-    pinMode(GPIO_PIN_TX_ENABLE, OUTPUT);
-    digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
-#endif
+    pinMode(GPIO_PIN_NSS, OUTPUT);
+    if (GPIO_PIN_NSS_2 != UNDEF_PIN)
+    {
+        pinMode(GPIO_PIN_NSS_2, OUTPUT);
+    }
+    setNss(SX126x_Radio_All, HIGH);
 
-#if defined(GPIO_PIN_RX_ENABLE) && (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
-    DBGLN("Use RX pin: %d", GPIO_PIN_RX_ENABLE);
-    pinMode(GPIO_PIN_RX_ENABLE, OUTPUT);
-    digitalWrite(GPIO_PIN_RX_ENABLE, LOW);
-#endif
+    if (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
+    {
+        DBGLN("Use PA enable pin: %d", GPIO_PIN_PA_ENABLE);
+        pinMode(GPIO_PIN_PA_ENABLE, OUTPUT);
+        digitalWrite(GPIO_PIN_PA_ENABLE, LOW);
+    }
+
+    if (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
+    {
+        DBGLN("Use TX pin: %d", GPIO_PIN_TX_ENABLE);
+        pinMode(GPIO_PIN_TX_ENABLE, OUTPUT);
+        digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
+    }
+
+    if (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
+    {
+        DBGLN("Use RX pin: %d", GPIO_PIN_RX_ENABLE);
+        pinMode(GPIO_PIN_RX_ENABLE, OUTPUT);
+        digitalWrite(GPIO_PIN_RX_ENABLE, LOW);
+    }
+
+    if (GPIO_PIN_TX_ENABLE_2 != UNDEF_PIN)
+    {
+        DBGLN("Use TX_2 pin: %d", GPIO_PIN_TX_ENABLE_2);
+        pinMode(GPIO_PIN_TX_ENABLE_2, OUTPUT);
+        digitalWrite(GPIO_PIN_TX_ENABLE_2, LOW);
+    }
+
+    if (GPIO_PIN_RX_ENABLE_2 != UNDEF_PIN)
+    {
+        DBGLN("Use RX_2 pin: %d", GPIO_PIN_RX_ENABLE_2);
+        pinMode(GPIO_PIN_RX_ENABLE_2, OUTPUT);
+        digitalWrite(GPIO_PIN_RX_ENABLE_2, LOW);
+    }
 
 #ifdef PLATFORM_ESP32
-  SPI.begin(GPIO_PIN_SCK, GPIO_PIN_MISO, GPIO_PIN_MOSI); // sck, miso, mosi, ss (ss can be any GPIO)
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setDataMode(SPI_MODE0);
-  SPI.setFrequency(10000000);
+    SPI.begin(GPIO_PIN_SCK, GPIO_PIN_MISO, GPIO_PIN_MOSI, -1); // sck, miso, mosi, ss (ss can be any GPIO)
+    gpio_pullup_en((gpio_num_t)GPIO_PIN_MISO);
+    SPI.setFrequency(10000000);
+#elif defined(PLATFORM_ESP8266)
+    DBGLN("PLATFORM_ESP8266");
+    SPI.begin();
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+    SPI.setFrequency(10000000);
+#elif defined(PLATFORM_STM32)
+    DBGLN("Config SPI");
+    SPI.setMOSI(GPIO_PIN_MOSI);
+    SPI.setMISO(GPIO_PIN_MISO);
+    SPI.setSCLK(GPIO_PIN_SCK);
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+    SPI.begin();
+    SPI.setClockDivider(SPI_CLOCK_DIV4); // 72 / 8 = 9 MHz
 #endif
 
-#ifdef PLATFORM_ESP8266
-  SPI.begin();
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setDataMode(SPI_MODE0);
-  SPI.setFrequency(10000000);
-#endif
-
-#ifdef PLATFORM_STM32
-  SPI.setMOSI(GPIO_PIN_MOSI);
-  SPI.setMISO(GPIO_PIN_MISO);
-  SPI.setSCLK(GPIO_PIN_SCK);
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setDataMode(SPI_MODE0);
-  SPI.setClockDivider(SPI_CLOCK_DIV4); // 72 / 8 = 9 MHz
-  SPI.begin();                         // SPI.setFrequency(10000000);
-#endif
-
-  pinMode(GPIO_PIN_NSS, OUTPUT);
-  pinMode(GPIO_PIN_RST, OUTPUT);
-  pinMode(GPIO_PIN_DIO0, INPUT);
-
-  digitalWrite(GPIO_PIN_NSS, HIGH);
-
-  delay(100);
-  digitalWrite(GPIO_PIN_RST, 0);
-  delay(100);
-  pinMode(GPIO_PIN_RST, INPUT); // leave floating
-
-  attachInterrupt(digitalPinToInterrupt(GPIO_PIN_DIO0), dioISR, RISING);
+    //attachInterrupt(digitalPinToInterrupt(GPIO_PIN_BUSY), this->busyISR, CHANGE); //not used atm
+    attachInterrupt(digitalPinToInterrupt(GPIO_PIN_DIO1), this->dioISR_1, RISING);
+    if (GPIO_PIN_DIO1_2 != UNDEF_PIN)
+    {
+        attachInterrupt(digitalPinToInterrupt(GPIO_PIN_DIO1_2), this->dioISR_2, RISING);
+    }
 }
 
-uint8_t ICACHE_RAM_ATTR SX126xHal::getRegValue(uint8_t reg, uint8_t msb, uint8_t lsb)
+void ICACHE_RAM_ATTR SX126xHal::setNss(uint8_t radioNumber, bool state)
 {
-  if ((msb > 7) || (lsb > 7) || (lsb > msb))
-  {
-    return (ERR_INVALID_BIT_RANGE);
-  }
-  uint8_t rawValue = readRegister(reg);
-  uint8_t maskedValue = rawValue & ((0b11111111 << lsb) & (0b11111111 >> (7 - msb)));
-  return (maskedValue);
+    if (radioNumber & SX126x_Radio_1) digitalWrite(GPIO_PIN_NSS, state);
+    if (GPIO_PIN_NSS_2 != UNDEF_PIN && radioNumber & SX126x_Radio_2) digitalWrite(GPIO_PIN_NSS_2, state);
 }
 
-void ICACHE_RAM_ATTR SX126xHal::readRegisterBurst(uint8_t reg, uint8_t numBytes, uint8_t *inBytes)
+void SX126xHal::reset(void)
 {
-  WORD_ALIGNED_ATTR uint8_t buf[numBytes + 1];
-  buf[0] = reg | SPI_READ;
+    DBGLN("SX126x Reset");
 
-  digitalWrite(GPIO_PIN_NSS, LOW);
-  SPI.transfer(buf, numBytes + 1);
-  digitalWrite(GPIO_PIN_NSS, HIGH);
+    if (GPIO_PIN_RST != UNDEF_PIN)
+    {
+        pinMode(GPIO_PIN_RST, OUTPUT);
+        digitalWrite(GPIO_PIN_RST, LOW);
+        delay(50);
+        digitalWrite(GPIO_PIN_RST, HIGH);
+        delay(50); // Safety buffer. Busy takes longer to go low than the 1ms timeout in WaitOnBusy().
+    }
 
-  memcpy(inBytes, buf + 1, numBytes);
+    BusyDelay(10000); // 10ms delay if GPIO_PIN_BUSY is undefined
+    WaitOnBusy(SX126x_Radio_All);
+
+    //this->BusyState = SX126x_NOT_BUSY;
+    DBGLN("SX126x Ready!");
 }
 
-uint8_t ICACHE_RAM_ATTR SX126xHal::readRegister(uint8_t reg)
+void ICACHE_RAM_ATTR SX126xHal::WriteCommand(SX126x_RadioCommands_t command, uint8_t val, SX126x_Radio_Number_t radioNumber, uint32_t busyDelay)
 {
-  WORD_ALIGNED_ATTR uint8_t buf[2];
-
-  buf[0] = reg | SPI_READ;
-
-  digitalWrite(GPIO_PIN_NSS, LOW);
-  SPI.transfer(buf, 2);
-  digitalWrite(GPIO_PIN_NSS, HIGH);
-
-  return (buf[1]);
+    WriteCommand(command, &val, 1, radioNumber, busyDelay);
 }
 
-uint8_t ICACHE_RAM_ATTR SX126xHal::setRegValue(uint8_t reg, uint8_t value, uint8_t msb, uint8_t lsb)
+void ICACHE_RAM_ATTR SX126xHal::WriteCommand(SX126x_RadioCommands_t command, uint8_t *buffer, uint8_t size, SX126x_Radio_Number_t radioNumber, uint32_t busyDelay)
 {
-  if ((msb > 7) || (lsb > 7) || (lsb > msb))
-  {
-    return (ERR_INVALID_BIT_RANGE);
-  }
+    WORD_ALIGNED_ATTR uint8_t OutBuffer[size + 1];
 
-  uint8_t currentValue = readRegister(reg);
-  uint8_t mask = ~((0b11111111 << (msb + 1)) | (0b11111111 >> (8 - lsb)));
-  uint8_t newValue = (currentValue & ~mask) | (value & mask);
-  writeRegister(reg, newValue);
-  return (ERR_NONE);
+    OutBuffer[0] = (uint8_t)command;
+    memcpy(OutBuffer + 1, buffer, size);
+
+    WaitOnBusy(radioNumber);
+    setNss(radioNumber, LOW);
+    SPI.transfer(OutBuffer, (uint8_t)sizeof(OutBuffer));
+    setNss(radioNumber, HIGH);
+
+    BusyDelay(busyDelay);
 }
 
-void ICACHE_RAM_ATTR SX126xHal::writeRegisterFIFO(volatile uint8_t *data, uint8_t numBytes)
+void ICACHE_RAM_ATTR SX126xHal::ReadCommand(SX126x_RadioCommands_t command, uint8_t *buffer, uint8_t size, SX126x_Radio_Number_t radioNumber)
 {
-  WORD_ALIGNED_ATTR uint8_t buf[numBytes + 1];
-  buf[0] = (SX127X_REG_FIFO | SPI_WRITE);
+    WORD_ALIGNED_ATTR uint8_t OutBuffer[size + 2];
+    #define RADIO_GET_STATUS_BUF_SIZEOF 3 // special case for command == SX126x_RADIO_GET_STATUS, fixed 3 bytes packet size
 
-  for (int i = 0; i < numBytes; i++) // todo check if this is the right want to handle volatiles
-  {
-    buf[i + 1] = data[i];
-  }
+    WaitOnBusy(radioNumber);
+    setNss(radioNumber, LOW);
 
-  digitalWrite(GPIO_PIN_NSS, LOW);
-#ifdef PLATFORM_STM32
-  SPI.transfer(buf, numBytes + 1);
-#else
-  SPI.writeBytes(buf, numBytes + 1);
-#endif
-  digitalWrite(GPIO_PIN_NSS, HIGH);
+    if (command == SX126x_RADIO_GET_STATUS)
+    {
+        OutBuffer[0] = (uint8_t)command;
+        OutBuffer[1] = 0x00;
+        OutBuffer[2] = 0x00;
+        SPI.transfer(OutBuffer, RADIO_GET_STATUS_BUF_SIZEOF);
+        buffer[0] = OutBuffer[0];
+    }
+    else
+    {
+        OutBuffer[0] = (uint8_t)command;
+        OutBuffer[1] = 0x00;
+        memcpy(OutBuffer + 2, buffer, size);
+        SPI.transfer(OutBuffer, sizeof(OutBuffer));
+        memcpy(buffer, OutBuffer + 2, size);
+    }
+    setNss(radioNumber, HIGH);
 }
 
-void ICACHE_RAM_ATTR SX126xHal::readRegisterFIFO(volatile uint8_t *data, uint8_t numBytes)
+void ICACHE_RAM_ATTR SX126xHal::WriteRegister(uint16_t address, uint8_t *buffer, uint8_t size, SX126x_Radio_Number_t radioNumber)
 {
-  WORD_ALIGNED_ATTR uint8_t buf[numBytes + 1];
-  buf[0] = SX127X_REG_FIFO | SPI_READ;
+    WORD_ALIGNED_ATTR uint8_t OutBuffer[size + 3];
 
-  digitalWrite(GPIO_PIN_NSS, LOW);
-  SPI.transfer(buf, numBytes + 1);
-  digitalWrite(GPIO_PIN_NSS, HIGH);
+    OutBuffer[0] = (SX126x_RADIO_WRITE_REGISTER);
+    OutBuffer[1] = ((address & 0xFF00) >> 8);
+    OutBuffer[2] = (address & 0x00FF);
 
-  for (int i = 0; i < numBytes; i++) // todo check if this is the right want to handle volatiles
-  {
-    data[i] = buf[i + 1];
-  }
+    memcpy(OutBuffer + 3, buffer, size);
+
+    WaitOnBusy(radioNumber);
+    setNss(radioNumber, LOW);
+    SPI.transfer(OutBuffer, (uint8_t)sizeof(OutBuffer));
+    setNss(radioNumber, HIGH);
+
+    BusyDelay(15);
 }
 
-void ICACHE_RAM_ATTR SX126xHal::writeRegisterBurst(uint8_t reg, uint8_t *data, uint8_t numBytes)
+void ICACHE_RAM_ATTR SX126xHal::WriteRegister(uint16_t address, uint8_t value, SX126x_Radio_Number_t radioNumber)
 {
-  WORD_ALIGNED_ATTR uint8_t buf[numBytes + 1];
-  buf[0] = reg | SPI_WRITE;
-  memcpy(buf + 1,  data, numBytes);
-
-  digitalWrite(GPIO_PIN_NSS, LOW);
-#ifdef PLATFORM_STM32
-  SPI.transfer(buf, numBytes + 1);
-#else
-  SPI.writeBytes(buf, numBytes + 1);
-#endif
-  digitalWrite(GPIO_PIN_NSS, HIGH);
+    WriteRegister(address, &value, 1, radioNumber);
 }
 
-void ICACHE_RAM_ATTR SX126xHal::writeRegister(uint8_t reg, uint8_t data)
+void ICACHE_RAM_ATTR SX126xHal::ReadRegister(uint16_t address, uint8_t *buffer, uint8_t size, SX126x_Radio_Number_t radioNumber)
 {
-  WORD_ALIGNED_ATTR uint8_t buf[2];
+    WORD_ALIGNED_ATTR uint8_t OutBuffer[size + 4];
 
-  buf[0] = reg | SPI_WRITE;
-  buf[1] = data;
+    OutBuffer[0] = (SX126x_RADIO_READ_REGISTER);
+    OutBuffer[1] = ((address & 0xFF00) >> 8);
+    OutBuffer[2] = (address & 0x00FF);
+    OutBuffer[3] = 0x00;
 
-  digitalWrite(GPIO_PIN_NSS, LOW);
-#ifdef PLATFORM_STM32
-  SPI.transfer(buf, 2);
-#else
-  SPI.writeBytes(buf, 2);
-#endif
-  digitalWrite(GPIO_PIN_NSS, HIGH);
+    WaitOnBusy(radioNumber);
+    setNss(radioNumber, LOW);
+
+    SPI.transfer(OutBuffer, uint8_t(sizeof(OutBuffer)));
+    memcpy(buffer, OutBuffer + 4, size);
+
+    setNss(radioNumber, HIGH);
 }
 
-void ICACHE_RAM_ATTR SX126xHal::TXenable()
+uint8_t ICACHE_RAM_ATTR SX126xHal::ReadRegister(uint16_t address, SX126x_Radio_Number_t radioNumber)
 {
-#if defined(GPIO_PIN_RX_ENABLE) && (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_RX_ENABLE, LOW);
-#endif
-#if defined(GPIO_PIN_TX_ENABLE) && (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_TX_ENABLE, HIGH);
-#endif
-#if defined(GPIO_PIN_PA_ENABLE) && (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_PA_ENABLE, HIGH);
-#endif
+    uint8_t data;
+    ReadRegister(address, &data, 1, radioNumber);
+    return data;
+}
+
+void ICACHE_RAM_ATTR SX126xHal::WriteBuffer(uint8_t offset, uint8_t *buffer, uint8_t size, SX126x_Radio_Number_t radioNumber)
+{
+    uint8_t localbuf[size];
+
+    for (int i = 0; i < size; i++) // todo check if this is the right want to handle volatiles
+    {
+        localbuf[i] = buffer[i];
+    }
+
+    WORD_ALIGNED_ATTR uint8_t OutBuffer[size + 2];
+
+    OutBuffer[0] = SX126x_RADIO_WRITE_BUFFER;
+    OutBuffer[1] = offset;
+
+    memcpy(OutBuffer + 2, localbuf, size);
+
+    WaitOnBusy(radioNumber);
+
+    setNss(radioNumber, LOW);
+    SPI.transfer(OutBuffer, (uint8_t)sizeof(OutBuffer));
+    setNss(radioNumber, HIGH);
+
+    BusyDelay(15);
+}
+
+void ICACHE_RAM_ATTR SX126xHal::ReadBuffer(uint8_t offset, uint8_t *buffer, uint8_t size, SX126x_Radio_Number_t radioNumber)
+{
+    WORD_ALIGNED_ATTR uint8_t OutBuffer[size + 3];
+    uint8_t localbuf[size];
+
+    OutBuffer[0] = SX126x_RADIO_READ_BUFFER;
+    OutBuffer[1] = offset;
+    OutBuffer[2] = 0x00;
+
+    WaitOnBusy(radioNumber);
+
+    setNss(radioNumber, LOW);
+    SPI.transfer(OutBuffer, uint8_t(sizeof(OutBuffer)));
+    setNss(radioNumber, HIGH);
+
+    memcpy(localbuf, OutBuffer + 3, size);
+
+    for (int i = 0; i < size; i++) // todo check if this is the right wany to handle volatiles
+    {
+        buffer[i] = localbuf[i];
+    }
+}
+
+bool ICACHE_RAM_ATTR SX126xHal::WaitOnBusy(SX126x_Radio_Number_t radioNumber)
+{
+    if (GPIO_PIN_BUSY != UNDEF_PIN)
+    {
+        constexpr uint32_t wtimeoutUS = 1000U;
+        uint32_t startTime = 0;
+
+        while (true)
+        {
+            if (radioNumber == SX126x_Radio_1)
+            {
+                if (digitalRead(GPIO_PIN_BUSY) == LOW) return true;
+            }
+            else if (GPIO_PIN_BUSY_2 != UNDEF_PIN && radioNumber == SX126x_Radio_2)
+            {
+                if (digitalRead(GPIO_PIN_BUSY_2) == LOW) return true;
+            }
+            else if (radioNumber == SX126x_Radio_All)
+            {
+                if (GPIO_PIN_BUSY_2 != UNDEF_PIN)
+                {
+                    if (digitalRead(GPIO_PIN_BUSY) == LOW && digitalRead(GPIO_PIN_BUSY_2) == LOW) return true;
+                }
+                else
+                {
+                    if (digitalRead(GPIO_PIN_BUSY) == LOW) return true;
+                }
+            }
+            else
+            {
+                // Use this time to call micros().
+                uint32_t now = micros();
+                if (startTime == 0) startTime = now;
+                if ((now - startTime) > wtimeoutUS) return false;
+            }
+        }
+    }
+    else
+    {
+        uint32_t now = micros();
+        while ((now - BusyDelayStart) < BusyDelayDuration)
+            now = micros();
+        BusyDelayDuration = 0;
+    }
+    return true;
+}
+
+void ICACHE_RAM_ATTR SX126xHal::dioISR_1()
+{
+    if (instance->IsrCallback_1)
+        instance->IsrCallback_1();
+}
+
+void ICACHE_RAM_ATTR SX126xHal::dioISR_2()
+{
+    if (instance->IsrCallback_2)
+        instance->IsrCallback_2();
+}
+
+void ICACHE_RAM_ATTR SX126xHal::TXenable(SX126x_Radio_Number_t radioNumber)
+{
+    if (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_PA_ENABLE, HIGH);
+
+    if (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_RX_ENABLE, LOW);
+    if (GPIO_PIN_TX_ENABLE != UNDEF_PIN && radioNumber & SX126x_Radio_1)
+        digitalWrite(GPIO_PIN_TX_ENABLE, HIGH);
+        
+    if (GPIO_PIN_RX_ENABLE_2 != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_RX_ENABLE_2, LOW);
+    if (GPIO_PIN_TX_ENABLE_2 != UNDEF_PIN && radioNumber & SX126x_Radio_2)
+        digitalWrite(GPIO_PIN_TX_ENABLE_2, HIGH);
 }
 
 void ICACHE_RAM_ATTR SX126xHal::RXenable()
 {
-#if defined(GPIO_PIN_RX_ENABLE) && (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_RX_ENABLE, HIGH);
-#endif
-#if defined(GPIO_PIN_TX_ENABLE) && (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
-#endif
-#if defined(GPIO_PIN_PA_ENABLE) && (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_PA_ENABLE, HIGH);
-#endif
+    if (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_PA_ENABLE, HIGH);
+        
+    if (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_RX_ENABLE, HIGH);
+    if (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
+        
+    if (GPIO_PIN_RX_ENABLE_2 != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_RX_ENABLE_2, HIGH);
+    if (GPIO_PIN_TX_ENABLE_2 != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_TX_ENABLE_2, LOW);
 }
 
 void ICACHE_RAM_ATTR SX126xHal::TXRXdisable()
 {
-#if defined(GPIO_PIN_RX_ENABLE) && (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_RX_ENABLE, LOW);
-#endif
-#if defined(GPIO_PIN_TX_ENABLE) && (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
-#endif
-#if defined(GPIO_PIN_PA_ENABLE) && (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
-    digitalWrite(GPIO_PIN_PA_ENABLE, LOW);
-#endif
-}
-
-void ICACHE_RAM_ATTR SX126xHal::dioISR()
-{
-    if (instance->IsrCallback)
-        instance->IsrCallback();
+    if (GPIO_PIN_PA_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_PA_ENABLE, LOW);
+        
+    if (GPIO_PIN_RX_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_RX_ENABLE, LOW);
+    if (GPIO_PIN_TX_ENABLE != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_TX_ENABLE, LOW);
+        
+    if (GPIO_PIN_RX_ENABLE_2 != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_RX_ENABLE_2, LOW);
+    if (GPIO_PIN_TX_ENABLE_2 != UNDEF_PIN)
+        digitalWrite(GPIO_PIN_TX_ENABLE_2, LOW);
 }
 
 #endif // UNIT_TEST

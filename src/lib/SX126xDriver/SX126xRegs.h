@@ -1,5 +1,7 @@
 #pragma once
 
+/* ---------------------------------------------------------- */
+
 /* Register defines borrowed from the RadioLib project: */
 /* RadioLib/src/modules/SX126x/SX126x.h                 */
 
@@ -337,284 +339,275 @@
 #define RADIOLIB_SX126X_SYNC_WORD_PRIVATE                      0x12        // actually 0x1424        You couldn't make this up if you tried.
 
 
-/* ---------------------------------------------- */
+/* ---------------------------------------------------------- */
 
-//#define SX126X_LORA_LOW_DATA_RATE_OPTIMIZE_OFF        0x00        //  7     0     LoRa low data rate optimization: disabled
-//#define SX126X_LORA_LOW_DATA_RATE_OPTIMIZE_ON         0x01        //  7     0                                      enabled
+#define REG_LR_FIRMWARE_VERSION_MSB 0x0153 //The address of the register holding the firmware version MSB
+#define SX126x_REG_LR_ESTIMATED_FREQUENCY_ERROR_MSB 0x0954
+#define SX126x_REG_LR_ESTIMATED_FREQUENCY_ERROR_MASK 0x0FFFFF
 
-typedef enum
-{
-    SX126x_BW_7_80_KHZ = SX126X_LORA_BW_7_8,
-    SX126x_BW_10_40_KHZ = SX126X_LORA_BW_10_4,
-    SX126x_BW_15_60_KHZ = SX126X_LORA_BW_15_6,
-    SX126x_BW_20_80_KHZ = SX126X_LORA_BW_20_8,
-    SX126x_BW_31_25_KHZ = SX126X_LORA_BW_31_25,
-    SX126x_BW_41_70_KHZ = SX126X_LORA_BW_41_7,
-    SX126x_BW_62_50_KHZ = SX126X_LORA_BW_62_5,
-    SX126x_BW_125_00_KHZ = SX126X_LORA_BW_125_0,
-    SX126x_BW_250_00_KHZ = SX126X_LORA_BW_250_0,
-    SX126x_BW_500_00_KHZ = SX126X_LORA_BW_500_0,
-} SX126x_Bandwidth;
+#define SX126x_REG_SF_ADDITIONAL_CONFIG             0x925
+#define SX126x_REG_FREQ_ERR_CORRECTION              0x93C
+
+#define SX126x_XTAL_FREQ 32000000
+#define FREQ_STEP ((double)(SX126x_XTAL_FREQ / pow(2.0, 18.0)))  // 198.3642578125
 
 typedef enum
 {
-    SX126x_SF_5 = SX126X_LORA_SF_5,
-    SX126x_SF_6 = SX126X_LORA_SF_6,
-    SX126x_SF_7 = SX126X_LORA_SF_7,
-    SX126x_SF_8 = SX126X_LORA_SF_8,
-    SX126x_SF_9 = SX126X_LORA_SF_9,
-    SX126x_SF_10 = SX126X_LORA_SF_10,
-    SX126x_SF_11 = SX126X_LORA_SF_11,
-    SX126x_SF_12 = SX126X_LORA_SF_12,
-} SX126x_SpreadingFactor;
+    SX126x_Radio_1 = 1 << 0,
+    SX126x_Radio_2 = 1 << 1,
+    SX126x_Radio_All = 0xFF,
+} SX126x_Radio_Number_t;
 
 typedef enum
 {
-    SX126x_CR_4_5 = SX126X_LORA_CR_4_5,
-    SX126x_CR_4_6 = SX126X_LORA_CR_4_6,
-    SX126x_CR_4_7 = SX126X_LORA_CR_4_7,
-    SX126x_CR_4_8 = SX126X_LORA_CR_4_7,
-} SX126x_CodingRate;
+    SX126x_RF_IDLE = 0x00, //!< The radio is idle
+    SX126x_RF_RX_RUNNING,  //!< The radio is in reception state
+    SX126x_RF_TX_RUNNING,  //!< The radio is in transmission state
+    SX126x_RF_CAD,         //!< The radio is doing channel activity detection
+} SX126x_RadioStates_t;
 
-#if 0
-
+/*!
+ * \brief Represents the operating mode the radio is actually running
+ */
 typedef enum
 {
-    SX126x_OPMODE_FSK_OOK = 0b00000000,
-    SX126x_OPMODE_LORA = 0b10000000,
-    SX126x_ACCESS_SHARED_REG_OFF = 0b00000000,
-    SX126x_ACCESS_SHARED_REG_ON = 0b01000000
-} SX126x_ModulationModes;
+    SX126x_MODE_SLEEP = 0x00, //! The radio is in sleep mode
+    SX126x_MODE_CALIBRATION,  //! The radio is in calibration mode
+    SX126x_MODE_STDBY_RC,     //! The radio is in standby mode with RC oscillator
+    SX126x_MODE_STDBY_XOSC,   //! The radio is in standby mode with XOSC oscillator
+    SX126x_MODE_FS,           //! The radio is in frequency synthesis mode
+    SX126x_MODE_RX,           //! The radio is in receive mode
+    SX126x_MODE_TX,           //! The radio is in transmit mode
+    SX126x_MODE_CAD           //! The radio is in channel activity detection mode
+} SX126x_RadioOperatingModes_t;
 
+#define SX126x_RX_TX_CONTINUOUS \
+    (TickTime_t) { RADIO_TICK_SIZE_0015_US, 0xFFFF }
+#define SX126x_RX_TX_SINGLE \
+    (TickTime_t) { RADIO_TICK_SIZE_0015_US, 0 }
+
+/*!
+ * \brief Declares the oscillator in use while in standby mode
+ *
+ * Using the STDBY_RC standby mode allow to reduce the energy consumption
+ * STDBY_XOSC should be used for time critical applications
+ */
+// TODO
 typedef enum
 {
-    SX126x_OPMODE_SLEEP = 0b00000000,
-    SX126x_OPMODE_STANDBY = 0b00000001,
-    SX126x_OPMODE_FSTX = 0b00000010,
-    SX126x_OPMODE_TX = 0b00000011,
-    SX126x_OPMODE_FSRX = 0b00000100,
-    SX126x_OPMODE_RXCONTINUOUS = 0b00000101,
-    SX126x_OPMODE_RXSINGLE = 0b00000110,
-    SX126x_OPMODE_CAD = 0b00000111,
-} SX126x_RadioOPmodes;
+    SX126x_STDBY_RC = 0x00,
+    SX126x_STDBY_XOSC = 0x01,
+} SX126x_RadioStandbyModes_t;
 
-// SX126x series common registers
-#define SX126X_REG_FIFO 0x00
-#define SX126X_REG_OP_MODE 0x01
-#define SX126X_REG_FRF_MSB 0x06
-#define SX126X_REG_FRF_MID 0x07
-#define SX126X_REG_FRF_LSB 0x08
-#define SX126X_REG_PA_CONFIG 0x09
-#define SX126X_REG_PA_RAMP 0x0A
-#define SX126X_REG_OCP 0x0B
-#define SX126X_REG_LNA 0x0C
-#define SX126X_REG_FIFO_ADDR_PTR 0x0D
-#define SX126X_REG_FIFO_TX_BASE_ADDR 0x0E
-#define SX126X_REG_FIFO_RX_BASE_ADDR 0x0F
-#define SX126X_REG_FIFO_RX_CURRENT_ADDR 0x10
-#define SX126X_REG_IRQ_FLAGS_MASK 0x11
-#define SX126X_REG_IRQ_FLAGS 0x12
-#define SX126X_REG_RX_NB_BYTES 0x13
-#define SX126X_REG_RX_HEADER_CNT_VALUE_MSB 0x14
-#define SX126X_REG_RX_HEADER_CNT_VALUE_LSB 0x15
-#define SX126X_REG_RX_PACKET_CNT_VALUE_MSB 0x16
-#define SX126X_REG_RX_PACKET_CNT_VALUE_LSB 0x17
-#define SX126X_REG_MODEM_STAT 0x18
-#define SX126X_REG_PKT_SNR_VALUE 0x19
-#define SX126X_REG_PKT_RSSI_VALUE 0x1A
-#define SX126X_REG_RSSI_VALUE 0x1B
-#define SX126X_REG_HOP_CHANNEL 0x1C
-#define SX126X_REG_MODEM_CONFIG_1 0x1D
-#define SX126X_REG_MODEM_CONFIG_2 0x1E
-#define SX126X_REG_SYMB_TIMEOUT_LSB 0x1F
-#define SX126X_REG_PREAMBLE_MSB 0x20
-#define SX126X_REG_PREAMBLE_LSB 0x21
-#define SX126X_REG_PAYLOAD_LENGTH 0x22
-#define SX126X_REG_MAX_PAYLOAD_LENGTH 0x23
-#define SX126X_REG_HOP_PERIOD 0x24
-#define SX126X_REG_FIFO_RX_BYTE_ADDR 0x25
-#define SX126X_REG_FEI_MSB 0x28
-#define SX126X_REG_FEI_MID 0x29
-#define SX126X_REG_FEI_LSB 0x2A
-#define SX126X_REG_RSSI_WIDEBAND 0x2C
-#define SX126X_REG_DETECT_OPTIMIZE 0x31
-#define SX126X_REG_INVERT_IQ 0x33
-#define SX126X_REG_DETECTION_THRESHOLD 0x37
-#define SX126X_REG_SYNC_WORD 0x39
-#define SX126X_REG_DIO_MAPPING_1 0x40
-#define SX126X_REG_DIO_MAPPING_2 0x41
-#define SX126X_REG_VERSION 0x42
+/*!
+ * \brief Declares the power regulation used to power the device
+ *
+ * This command allows the user to specify if DC-DC or LDO is used for power regulation.
+ * Using only LDO implies that the Rx or Tx current is doubled
+ */
+// TODO
+typedef enum
+{
+    SX126x_USE_LDO = 0x00,  //! Use LDO (default value)
+    SX126x_USE_DCDC = 0x01, //! Use DCDC
+} SX126x_RadioRegulatorModes_t;
 
-// SX127X_REG_PA_CONFIG
-#define SX127X_PA_SELECT_RFO 0b00000000    //  7     7     RFO pin output, power limited to +14 dBm
-#define SX127X_PA_SELECT_BOOST 0b10000000  //  7     7     PA_BOOST pin output, power limited to +20 dBm
-#define SX127X_OUTPUT_POWER 0b00001111     //  3     0     output power: P_out = 17 - (15 - OUTPUT_POWER) [dBm] for PA_SELECT_BOOST
-#ifdef TARGET_TX_BETAFPV_900_V1
-    #define SX127X_MAX_OUTPUT_POWER 0b00000000 //              Enable max output power
-#else
-    #define SX127X_MAX_OUTPUT_POWER 0b01110000 //              Enable max output power
-#endif
-// SX127X_REG_OCP
-#define SX127X_OCP_OFF 0b00000000   //  5     5     PA overload current protection disabled
-#define SX127X_OCP_ON 0b00100000    //  5     5     PA overload current protection enabled
-#define SX127X_OCP_TRIM 0b00001011  //  4     0     OCP current: I_max(OCP_TRIM = 0b1011) = 100 mA
-#define SX127X_OCP_150MA 0b00010010 //  4     0     OCP current: I_max(OCP_TRIM = 10010) = 150 mA
+/*!
+ * \brief Represents the possible packet type (i.e. modem) used
+ */
+// TODO
+typedef enum
+{
+    SX126x_PACKET_TYPE_GFSK = 0x00,
+    SX126x_PACKET_TYPE_LORA,
+    SX126x_PACKET_TYPE_LR_FHSS = 0x03,
+    SX126x_PACKET_TYPE_NONE = 0x0F,
+} SX126x_RadioPacketTypes_t;
 
-// SX127X_REG_LNA
-#define SX127X_LNA_GAIN_0 0b00000000    //  7     5     LNA gain setting:   not used
-#define SX127X_LNA_GAIN_1 0b00100000    //  7     5                         max gain
-#define SX127X_LNA_GAIN_2 0b01000000    //  7     5                         .
-#define SX127X_LNA_GAIN_3 0b01100000    //  7     5                         .
-#define SX127X_LNA_GAIN_4 0b10000000    //  7     5                         .
-#define SX127X_LNA_GAIN_5 0b10100000    //  7     5                         .
-#define SX127X_LNA_GAIN_6 0b11000000    //  7     5                         min gain
-#define SX127X_LNA_GAIN_7 0b11100000    //  7     5                         not used
-#define SX127X_LNA_BOOST_OFF 0b00000000 //  1     0     default LNA current
-#define SX127X_LNA_BOOST_ON 0b00000011  //  1     0     150% LNA current
+// TODO
+typedef enum
+{
+    SX126x_LORA_IQ_NORMAL = 0x40,
+    SX126x_LORA_IQ_INVERTED = 0x00,
+} SX126x_RadioLoRaIQModes_t;
 
-#define SX127X_TX_MODE_SINGLE 0b00000000 //  3     3     single TX
-#define SX127X_TX_MODE_CONT 0b00001000   //  3     3     continuous TX
-#define SX127X_RX_TIMEOUT_MSB 0b00000000 //  1     0
+// TODO
+typedef enum
+{
+    SX126x_RADIO_CRC_OFF = 0x00, //!< No CRC in use
+    SX126x_RADIO_CRC_1_BYTES = 0x10,
+    SX126x_RADIO_CRC_2_BYTES = 0x20,
+    SX126x_RADIO_CRC_3_BYTES = 0x30,
+} SX126x_RadioCrcTypes_t;
 
-// SX127X_REG_SYMB_TIMEOUT_LSB
-#define SX127X_RX_TIMEOUT_LSB 0b01100100 //  7     0     10 bit RX operation timeout
+/*!
+ * \brief Represents the ramping time for power amplifier
+ */
+// TODO
+typedef enum
+{
+    SX126x_RADIO_RAMP_02_US = 0x00,
+    SX126x_RADIO_RAMP_04_US = 0x20,
+    SX126x_RADIO_RAMP_06_US = 0x40,
+    SX126x_RADIO_RAMP_08_US = 0x60,
+    SX126x_RADIO_RAMP_10_US = 0x80,
+    SX126x_RADIO_RAMP_12_US = 0xA0,
+    SX126x_RADIO_RAMP_16_US = 0xC0,
+    SX126x_RADIO_RAMP_20_US = 0xE0,
+} SX126x_RadioRampTimes_t;
 
-// SX127X_REG_PREAMBLE_MSB + REG_PREAMBLE_LSB
-#define SX127X_PREAMBLE_LENGTH_MSB 0b00000000 //  7     0     2 byte preamble length setting: l_P = PREAMBLE_LENGTH + 4.25
-#define SX127X_PREAMBLE_LENGTH_LSB 0b00001000 //  7     0         where l_p = preamble length
-//#define SX127X_PREAMBLE_LENGTH_LSB                    0b00000100  //  7     0         where l_p = preamble length  //CHANGED
+/*!
+ * \brief Represents the number of symbols to be used for channel activity detection operation
+ */
+// TODO
+typedef enum
+{
+    SX126x_LORA_CAD_01_SYMBOL = 0x00,
+    SX126x_LORA_CAD_02_SYMBOLS = 0x20,
+    SX126x_LORA_CAD_04_SYMBOLS = 0x40,
+    SX126x_LORA_CAD_08_SYMBOLS = 0x60,
+    SX126x_LORA_CAD_16_SYMBOLS = 0x80,
+} SX126x_RadioLoRaCadSymbols_t;
 
-// SX127X_REG_DETECT_OPTIMIZE
-#define SX127X_DETECT_OPTIMIZE_SF_6 0b00000101    //  2     0     SF6 detection optimization
-#define SX127X_DETECT_OPTIMIZE_SF_7_12 0b00000011 //  2     0     SF7 to SF12 detection optimization
+/*!
+ * \brief Represents the possible spreading factor values in LORA packet types
+ */
+// TODO
+typedef enum
+{
+    SX126x_LORA_SF5 = 0x50,
+    SX126x_LORA_SF6 = 0x60,
+    SX126x_LORA_SF7 = 0x70,
+    SX126x_LORA_SF8 = 0x80,
+    SX126x_LORA_SF9 = 0x90,
+    SX126x_LORA_SF10 = 0xA0,
+    SX126x_LORA_SF11 = 0xB0,
+    SX126x_LORA_SF12 = 0xC0,
+} SX126x_RadioLoRaSpreadingFactors_t;
 
-// SX127X_REG_DETECTION_THRESHOLD
-#define SX127X_DETECTION_THRESHOLD_SF_6 0b00001100    //  7     0     SF6 detection threshold
-#define SX127X_DETECTION_THRESHOLD_SF_7_12 0b00001010 //  7     0     SF7 to SF12 detection threshold
+/*!
+ * \brief Represents the bandwidth values for LORA packet type
+ */
+// TODO
+typedef enum
+{
+    SX126x_LORA_BW_0200 = 0x34,
+    SX126x_LORA_BW_0400 = 0x26,
+    SX126x_LORA_BW_0800 = 0x18,
+    SX126x_LORA_BW_1600 = 0x0A,
+} SX126x_RadioLoRaBandwidths_t;
 
-// SX127X_REG_PA_DAC
-#define SX127X_PA_BOOST_OFF 0b00000100 //  2     0     PA_BOOST disabled
-#define SX127X_PA_BOOST_ON 0b00000111  //  2     0     +20 dBm on PA_BOOST when OUTPUT_POWER = 0b1111
+/*!
+ * \brief Represents the coding rate values for LORA packet type
+ */
+// TODO
+typedef enum
+{
+    SX126x_LORA_CR_4_5 = 0x01,
+    SX126x_LORA_CR_4_6 = 0x02,
+    SX126x_LORA_CR_4_7 = 0x03,
+    SX126x_LORA_CR_4_8 = 0x04,
+    SX126x_LORA_CR_LI_4_5 = 0x05,
+    SX126x_LORA_CR_LI_4_6 = 0x06,
+    SX126x_LORA_CR_LI_4_7 = 0x07,
+} SX126x_RadioLoRaCodingRates_t;
 
-// SX127X_REG_HOP_PERIOD
-#define SX127X_HOP_PERIOD_OFF 0b00000000 //  7     0     number of periods between frequency hops; 0 = disabled
-#define SX127X_HOP_PERIOD_MAX 0b11111111 //  7     0
+// TODO
+typedef enum
+{
+    SX126x_LORA_PACKET_VARIABLE_LENGTH = 0x00, //!< The packet is on variable size, header included
+    SX126x_LORA_PACKET_FIXED_LENGTH = 0x80,    //!< The packet is known on both sides, no header included in the packet
+    SX126x_LORA_PACKET_EXPLICIT = SX126x_LORA_PACKET_VARIABLE_LENGTH,
+    SX126x_LORA_PACKET_IMPLICIT = SX126x_LORA_PACKET_FIXED_LENGTH,
+} SX126x_RadioLoRaPacketLengthsModes_t;
 
-// SX127X_REG_DIO_MAPPING_1
-#define SX127X_DIO0_RX_DONE 0b00000000             //  7     6
-#define SX127X_DIO0_TX_DONE 0b01000000             //  7     6
-#define SX127X_DIO0_CAD_DONE 0b10000000            //  7     6
-#define SX127X_DIO1_RX_TIMEOUT 0b00000000          //  5     4
-#define SX127X_DIO1_FHSS_CHANGE_CHANNEL 0b00010000 //  5     4
-#define SX127X_DIO1_CAD_DETECTED 0b00100000        //  5     4
+// TODO
+typedef enum
+{
+    SX126x_LORA_CRC_ON = 0x20,  //!< CRC activated
+    SX126x_LORA_CRC_OFF = 0x00, //!< CRC not used
+} SX126x_RadioLoRaCrcModes_t;
 
-// SX127X_REG_IRQ_FLAGS
-#define SX127X_CLEAR_IRQ_FLAG_RX_TIMEOUT 0b10000000          //  7     7     timeout
-#define SX127X_CLEAR_IRQ_FLAG_RX_DONE 0b01000000             //  6     6     packet reception complete
-#define SX127X_CLEAR_IRQ_FLAG_PAYLOAD_CRC_ERROR 0b00100000   //  5     5     payload CRC error
-#define SX127X_CLEAR_IRQ_FLAG_VALID_HEADER 0b00010000        //  4     4     valid header received
-#define SX127X_CLEAR_IRQ_FLAG_TX_DONE 0b00001000             //  3     3     payload transmission complete
-#define SX127X_CLEAR_IRQ_FLAG_CAD_DONE 0b00000100            //  2     2     CAD complete
-#define SX127X_CLEAR_IRQ_FLAG_FHSS_CHANGE_CHANNEL 0b00000010 //  1     1     FHSS change channel
-#define SX127X_CLEAR_IRQ_FLAG_CAD_DETECTED 0b00000001        //  0     0     valid LoRa signal detected during CAD operation
+// TODO
+typedef enum RadioCommands_u
+{
+    SX126x_RADIO_GET_STATUS = 0xC0,
+    SX126x_RADIO_WRITE_REGISTER = 0x0D,
+    SX126x_RADIO_READ_REGISTER = 0x1D,
+    SX126x_RADIO_WRITE_BUFFER = 0x0E,
+    SX126x_RADIO_READ_BUFFER = 0x1E,
+    SX126x_RADIO_SET_SLEEP = 0x84,
+    SX126x_RADIO_SET_STANDBY = 0x80,
+    SX126x_RADIO_SET_FS = 0xC1,
+    SX126x_RADIO_SET_TX = 0x83,
+    SX126x_RADIO_SET_RX = 0x82,
+    SX126x_RADIO_SET_RXDUTYCYCLE = 0x94,
+    SX126x_RADIO_SET_CAD = 0xC5,
+    SX126x_RADIO_SET_TXCONTINUOUSWAVE = 0xD1,
+    SX126x_RADIO_SET_TXCONTINUOUSPREAMBLE = 0xD2,
+    SX126x_RADIO_SET_PACKETTYPE = 0x8A,
+    SX126x_RADIO_GET_PACKETTYPE = 0x11,
+    SX126x_RADIO_SET_RFFREQUENCY = 0x86,
+    SX126x_RADIO_SET_TXPARAMS = 0x8E,
+    SX126x_RADIO_SET_CADPARAMS = 0x88,
+    SX126x_RADIO_SET_BUFFERBASEADDRESS = 0x8F,
+    SX126x_RADIO_SET_MODULATIONPARAMS = 0x8B,
+    SX126x_RADIO_SET_PACKETPARAMS = 0x8C,
+    SX126x_RADIO_GET_RXBUFFERSTATUS = 0x13,
+    SX126x_RADIO_GET_PACKETSTATUS = 0x14,
+    SX126x_RADIO_GET_RSSIINST = 0x15,
+    SX126x_RADIO_SET_DIOIRQPARAMS = 0x08,
+    SX126x_RADIO_GET_IRQSTATUS = 0x12,
+    SX126x_RADIO_CLR_IRQSTATUS = 0x02,
+    SX126x_RADIO_CALIBRATE = 0x89,
+    SX126x_RADIO_SET_REGULATORMODE = 0x96,
+    //SX126x_RADIO_SET_SAVECONTEXT = 0xD5,
+    //SX126x_RADIO_SET_AUTOTX = 0x98,
+    //SX126x_RADIO_SET_AUTOFS = 0x9E,
+    //SX126x_RADIO_SET_LONGPREAMBLE = 0x9B,
+    //SX126x_RADIO_SET_UARTSPEED = 0x9D,
+    //SX126x_RADIO_SET_RANGING_ROLE = 0xA3,
+    SX126x_RADIO_SET_DIO2_AS_RF_SWITCH_CTRL = 0x9D,
+    SX126x_RADIO_SET_DIO3_AS_TCXO_CTRL = 0x97,
 
-// SX127X_REG_IRQ_FLAGS_MASK
-#define SX127X_MASK_IRQ_FLAG_RX_TIMEOUT 0b01111111          //  7     7     timeout
-#define SX127X_MASK_IRQ_FLAG_RX_DONE 0b10111111             //  6     6     packet reception complete
-#define SX127X_MASK_IRQ_FLAG_PAYLOAD_CRC_ERROR 0b11011111   //  5     5     payload CRC error
-#define SX127X_MASK_IRQ_FLAG_VALID_HEADER 0b11101111        //  4     4     valid header received
-#define SX127X_MASK_IRQ_FLAG_TX_DONE 0b11110111             //  3     3     payload transmission complete
-#define SX127X_MASK_IRQ_FLAG_CAD_DONE 0b11111011            //  2     2     CAD complete
-#define SX127X_MASK_IRQ_FLAG_FHSS_CHANGE_CHANNEL 0b11111101 //  1     1     FHSS change channel
-#define SX127X_MASK_IRQ_FLAG_CAD_DETECTED 0b11111110        //  0     0     valid LoRa signal detected during CAD operation
+} SX126x_RadioCommands_t;
 
-// SX127X_REG_FIFO_TX_BASE_ADDR
-#define SX127X_FIFO_TX_BASE_ADDR_MAX 0b00000000 //  7     0     allocate the entire FIFO buffer for TX only
+// TODO
+typedef enum
+{
+    SX126x_IRQ_RADIO_NONE = 0x0000,
+    SX126x_IRQ_TX_DONE = 0x0001,
+    SX126x_IRQ_RX_DONE = 0x0002,
+    SX126x_IRQ_SYNCWORD_VALID = 0x0004,
+    SX126x_IRQ_SYNCWORD_ERROR = 0x0008,
+    SX126x_IRQ_HEADER_VALID = 0x0010,
+    SX126x_IRQ_HEADER_ERROR = 0x0020,
+    SX126x_IRQ_CRC_ERROR = 0x0040,
+    SX126x_IRQ_RANGING_SLAVE_RESPONSE_DONE = 0x0080,
+    SX126x_IRQ_RANGING_SLAVE_REQUEST_DISCARDED = 0x0100,
+    SX126x_IRQ_RANGING_MASTER_RESULT_VALID = 0x0200,
+    SX126x_IRQ_RANGING_MASTER_TIMEOUT = 0x0400,
+    SX126x_IRQ_RANGING_SLAVE_REQUEST_VALID = 0x0800,
+    SX126x_IRQ_CAD_DONE = 0x1000,
+    SX126x_IRQ_CAD_DETECTED = 0x2000,
+    SX126x_IRQ_RX_TX_TIMEOUT = 0x4000,
+    SX126x_IRQ_PREAMBLE_DETECTED = 0x8000,
+    SX126x_IRQ_RADIO_ALL = 0xFFFF,
+} SX126x_RadioIrqMasks_t;
 
-// SX127X_REG_FIFO_RX_BASE_ADDR
-#define SX127X_FIFO_RX_BASE_ADDR_MAX 0b00000000 //  7     0     allocate the entire FIFO buffer for RX only
+// TODO
+typedef enum
+{
+    SX126x_RADIO_DIO1 = 0x02,
+    SX126x_RADIO_DIO2 = 0x04,
+    SX126x_RADIO_DIO3 = 0x08,
+} SX126x_RadioDios_t;
 
-// SX127X_REG_SYNC_WORD
-//#define SX127X_SYNC_WORD 0xC8 //  200   0     default ExpressLRS sync word - 200Hz
-#define SX127X_SYNC_WORD                              0x12        //  18    0     default LoRa sync word
-#define SX127X_SYNC_WORD_LORAWAN 0x34 //  52    0     sync word reserved for LoRaWAN networks
-
-#define IRQpin 26
-
-///Added by Sandro
-#define SX126x_TXCONTINUOUSMODE_MASK 0xF7
-#define SX126x_TXCONTINUOUSMODE_ON 0x08
-#define SX126x_TXCONTINUOUSMODE_OFF 0x00
-#define SX126x_PPMOFFSET 0x27
-
-///// SX1278 Regs /////
-//SX1278 specific register map
-#define SX1278_REG_MODEM_CONFIG_3 0x26
-#define SX1278_REG_TCXO 0x4B
-#define SX1278_REG_PA_DAC 0x4D
-#define SX1278_REG_FORMER_TEMP 0x5D
-#define SX1278_REG_AGC_REF 0x61
-#define SX1278_REG_AGC_THRESH_1 0x62
-#define SX1278_REG_AGC_THRESH_2 0x63
-#define SX1278_REG_AGC_THRESH_3 0x64
-#define SX1278_REG_PLL 0x70
-
-//SX1278 LoRa modem settings
-//SX1278_REG_OP_MODE                                                  MSB   LSB   DESCRIPTION
-#define SX1278_HIGH_FREQ 0b00000000 //  3     3     access HF test registers
-#define SX1278_LOW_FREQ 0b00001000  //  3     3     access LF test registers
-
-//SX1278_REG_FRF_MSB + REG_FRF_MID + REG_FRF_LSB
-#define SX1278_FRF_MSB 0x6C //  7     0     carrier frequency setting: f_RF = (F(XOSC) * FRF)/2^19
-#define SX1278_FRF_MID 0x80 //  7     0         where F(XOSC) = 32 MHz
-#define SX1278_FRF_LSB 0x00 //  7     0               FRF = 3 byte value of FRF registers
-
-//SX1278_REG_PA_CONFIG
-#define SX1278_MAX_POWER 0b01110000 //  6     4     max power: P_max = 10.8 + 0.6*MAX_POWER [dBm]; P_max(MAX_POWER = 0b111) = 15 dBm
-//#define SX1278_MAX_POWER                              0b00010000  //  6     4     changed
-
-//SX1278_REG_LNA
-#define SX1278_LNA_BOOST_LF_OFF 0b00000000 //  4     3     default LNA current
-
-#define SX1278_HEADER_EXPL_MODE 0b00000000 //  0     0     explicit header mode
-#define SX1278_HEADER_IMPL_MODE 0b00000001 //  0     0     implicit header mode
-
-//SX1278_REG_MODEM_CONFIG_2
-#define SX1278_RX_CRC_MODE_OFF 0b00000000 //  2     2     CRC disabled
-#define SX1278_RX_CRC_MODE_ON 0b00000100  //  2     2     CRC enabled
-
-//SX1278_REG_MODEM_CONFIG_3
-#define SX1278_LOW_DATA_RATE_OPT_OFF 0b00000000 //  3     3     low data rate optimization disabled
-#define SX1278_LOW_DATA_RATE_OPT_ON 0b00001000  //  3     3     low data rate optimization enabled
-#define SX1278_AGC_AUTO_OFF 0b00000000          //  2     2     LNA gain set by REG_LNA
-#define SX1278_AGC_AUTO_ON 0b00000100           //  2     2     LNA gain set by internal AGC loop
-
-#define SX1276_HEADER_EXPL_MODE 0b00000000 //  0     0     explicit header mode
-#define SX1276_HEADER_IMPL_MODE 0b00000001 //  0     0     implicit header mode
-
-#define ERR_NONE 0x00
-#define ERR_CHIP_NOT_FOUND 0x01
-#define ERR_EEPROM_NOT_INITIALIZED 0x02
-
-#define ERR_PACKET_TOO_LONG 0x10
-#define ERR_TX_TIMEOUT 0x11
-
-#define ERR_RX_TIMEOUT 0x20
-#define ERR_CRC_MISMATCH 0x21
-
-#define ERR_INVALID_BANDWIDTH 0x30
-#define ERR_INVALID_SPREADING_FACTOR 0x31
-#define ERR_INVALID_CODING_RATE 0x32
-#define ERR_INVALID_FREQUENCY 0x33
-
-#define ERR_INVALID_BIT_RANGE 0x40
-
-#define CHANNEL_FREE 0x50
-#define PREAMBLE_DETECTED 0x51
-
-#define SPI_READ 0b00000000
-#define SPI_WRITE 0b10000000
-
-#endif
-
-
+// TODO
+typedef enum
+{
+    SX126x_RADIO_TICK_SIZE_0015_US = 0x00,
+    SX126x_RADIO_TICK_SIZE_0062_US = 0x01,
+    SX126x_RADIO_TICK_SIZE_1000_US = 0x02,
+    SX126x_RADIO_TICK_SIZE_4000_US = 0x03,
+} SX126x_RadioTickSizes_t;
