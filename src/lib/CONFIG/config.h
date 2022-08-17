@@ -206,17 +206,6 @@ public:
     #endif
     void SetForceTlmOff(bool forceTlmOff);
 
-    // Stubbed in getters and setters to support the generic display code... There's prob a better way to do this.
-    uint8_t GetRate() const { return 0; }
-    uint8_t GetTlm() const { return 0; }
-    uint8_t GetPower() const { return 0; }
-    uint8_t  GetFanMode() const { return 0; }
-    uint8_t  GetMotionMode() const { return 0; }
-    bool GetDynamicPower() const { return 0; }
-    void SetRate(uint8_t rate) const { }
-    void SetPower(uint8_t power) const { }
-    void SetTlm(uint8_t tlm) const { }
-
 private:
     void UpgradeEepromV4ToV5();
 

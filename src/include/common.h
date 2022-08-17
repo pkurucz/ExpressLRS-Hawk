@@ -104,6 +104,7 @@ enum {
     RADIO_TYPE_SX127x_LORA,
     RADIO_TYPE_SX128x_LORA,
     RADIO_TYPE_SX128x_FLRC,
+    RADIO_TYPE_SX126x_LORA,
 };
 
 // Value used for expresslrs_rf_pref_params_s.DynpowerUpThresholdSnr if SNR should not be used

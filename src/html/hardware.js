@@ -2,25 +2,10 @@
 /* eslint-disable comma-dangle */
 /* eslint-disable require-jsdoc */
 
-document.addEventListener('DOMContentLoaded', onReady, false);
+document.addEventListener('DOMContentLoaded', loadData, false);
 
 function _(el) {
   return document.getElementById(el);
-}
-
-function onReady() {
-  // Add some tooltips to the pin type icons [CSS class name, Label]
-  [['icon-input', 'Digital Input'], ['icon-output', 'Digital Output'], ['icon-analog', 'Analog Input'], ['icon-pwm', 'PWM Output']].forEach((t) =>
-  {
-    let imgs = document.getElementsByClassName(t[0]);
-    [...imgs].forEach(i => i.title = t[1]);
-  });
-
-  if (window.File && window.FileList && window.FileReader) {
-    initFiledrag();
-  }
-
-  loadData();
 }
 
 function loadData() {
@@ -113,7 +98,7 @@ function parseFile(file) {
   reader.readAsText(file);
 }
 
-function initFiledrag() {
+function init() {
   const fileselect = _('fileselect');
   const filedrag = _('filedrag');
 
@@ -126,6 +111,10 @@ function initFiledrag() {
     filedrag.addEventListener('drop', fileSelectHandler, false);
     filedrag.style.display = 'block';
   }
+}
+
+if (window.File && window.FileList && window.FileReader) {
+  init();
 }
 
 @@include("libs.js")
