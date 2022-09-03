@@ -59,6 +59,7 @@ typedef enum {
     // Lighting
     HARDWARE_led,
     HARDWARE_led_blue,
+    HARDWARE_led_blue_invert,
     HARDWARE_led_green,
     HARDWARE_led_green_invert,
     HARDWARE_led_green_red,
