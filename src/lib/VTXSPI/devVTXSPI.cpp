@@ -7,7 +7,7 @@
 #include "hwTimer.h"
 #include "logging.h"
 #include <SPI.h>
-#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32S2)
 #include <analogWrite.h>
 #endif
 
@@ -275,10 +275,11 @@ static void initialize()
         #if defined(PLATFORM_ESP8266)
             pinMode(GPIO_PIN_RF_AMP_PWM, OUTPUT);
             analogWriteFreq(10000); // 10kHz
-        #else
+            analogWriteResolution(12); // 0 - 4095
+        #elif !defined(PLATFORM_ESP32S2)
             analogWriteFrequency(GPIO_PIN_RF_AMP_PWM, 10000); // 10kHz
+            analogWriteResolution(12); // 0 - 4095
         #endif
-        analogWriteResolution(12); // 0 - 4095
         analogWrite(GPIO_PIN_RF_AMP_PWM, vtxSPIPWM);
 
         delay(RTC6705_BOOT_DELAY);

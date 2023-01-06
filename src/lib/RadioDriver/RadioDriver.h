@@ -1,15 +1,15 @@
 #ifndef _RADIODRIVER_H
 #define _RADIODRIVER_H
 
-#if defined(SX127x)
+#if defined(RADIO_SX127X)
 #include "SX127xDriver.h"
 #define RadioDriver SX127xDriver
 
-#elif defined(SX1280)
+#elif defined(RADIO_SX1280)
 #include "SX1280Driver.h"
 #define RadioDriver SX1280Driver
 
-#elif defined(SX126x)
+#elif defined(RADIO_SX126X)
 #include "SX126xDriver.h"
 #define RadioDriver SX126xDriver
 

@@ -11,7 +11,9 @@
 #include "devLED.h"
 #include "devScreen.h"
 #include "devBuzzer.h"
+#if defined(BLE)
 #include "devBLE.h"
+#endif
 #include "devLUA.h"
 #include "devWIFI.h"
 #include "devButton.h"

@@ -254,10 +254,20 @@
         defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433) || \
         defined(Regulatory_Domain_FCC_433) || defined(UNIT_TEST))
         defined(UNIT_TEST))
-#error "Regulatory_Domain is not defined for 900MHz device. Check user_defines.txt!"
+#error "Regulatory_Domain is not defined for SX217X device. Check user_defines.txt!"
 #endif
+
+#elif defined(RADIO_SX126X)
+#if !(defined(Regulatory_Domain_AU_915) || defined(Regulatory_Domain_FCC_915) || \
+        defined(Regulatory_Domain_EU_868) || defined(Regulatory_Domain_IN_866) || \
+        defined(Regulatory_Domain_AU_433) || defined(Regulatory_Domain_EU_433) || \
+        defined(Regulatory_Domain_FCC_433) || defined(UNIT_TEST))
+        defined(UNIT_TEST))
+#error "Regulatory_Domain is not defined for SX126X device. Check user_defines.txt!"
+#endif
+
 #else
-#error "Either RADIO_SX127X or RADIO_SX128X must be defined!"
+#error "Either RADIO_SX126X, RADIO_SX127X or RADIO_SX128X must be defined!"
 #endif
 
 #if defined(TARGET_UNIFIED_TX) || defined(TARGET_UNIFIED_RX)

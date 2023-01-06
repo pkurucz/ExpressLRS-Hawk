@@ -26,6 +26,13 @@ const fhss_config_t domains[] = {
     #endif
     FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80}
 };
+#elif defined(RADIO_SX126X)
+#include "SX1280Driver.h"
+
+const fhss_config_t domains[] = {
+    {"US433",  FREQ_HZ_TO_REG_VAL(430000000), FREQ_HZ_TO_REG_VAL(440000000), 100},
+    {"EU433",  FREQ_HZ_TO_REG_VAL(433100000), FREQ_HZ_TO_REG_VAL(434450000), 3},
+};
 #endif
 
 // Our table of FHSS frequencies. Define a regulatory domain to select the correct set for your location and radio

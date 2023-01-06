@@ -1,0 +1,18 @@
+Building .pio/build/Unified_ESP32S2_400_TX_via_UART/firmware.bin
+esptool.py v3.3
+Creating esp32s2 image...
+Merged 2 ELF sections
+Successfully created esp32s2 image.
+appendConfiguration([".pio/build/Unified_ESP32S2_400_TX_via_UART/firmware.bin"], [".pio/build/Unified_ESP32S2_400_TX_via_UART/firmware.elf"])
+1) BETAFPV 900MHz Nano TX
+2) BETAFPV 900MHz Micro TX
+3) DIY TTGO V1 900MHz TX
+4) DIY TTGO V2 900MHz TX
+5) DIY PK HAWK S2 V1 400MHz TX
+6) DIY ESP32 + E19 900MHz TX
+7) DIY ESP32 + RFM95 900MHz TX
+8) HappyModel ES900 TX
+9) iFlight 900MHz TX
+10) NamimnoRC Voyager OLED 900MHz TX
+Choose a configuration to load into the firmware file (press enter to leave bare)
+

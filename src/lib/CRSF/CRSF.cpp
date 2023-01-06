@@ -777,7 +777,7 @@ void ICACHE_RAM_ATTR CRSF::adjustMaxPacketSize()
     DBGLN("Adjusted max packet size %u-%u", maxPacketBytes, maxPeriodBytes);
 }
 
-#if defined(PLATFORM_ESP32)
+#if defined(USE_ESP32_AUTOBAUD)
 uint32_t CRSF::autobaud()
 {
     static enum { INIT, MEASURED, INVERTED } state;

@@ -1,0 +1,22 @@
+{
+    "serial_rx": 7,
+    "serial_tx": 8,
+    "radio_dio0": ,
+    "radio_miso": 39,
+    "radio_mosi": 38,
+    "radio_nss": 36,
+    "radio_rst": 45,
+    "radio_sck": 37,
+    "power_min": 0,
+    "power_high": 0,
+    "power_max": 0,
+    "power_default": 0,
+    "power_control": 0,
+    "power_values": [15],
+    "led": 16,
+    "button": 0,
+    "screen_sck": 33,
+    "screen_sda": 34,
+    "screen_type": 1,
+    "pwm_outputs": [15,14,12,11,10,9]
+}
