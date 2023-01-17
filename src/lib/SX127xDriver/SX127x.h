@@ -47,7 +47,7 @@ public:
 
     #define FREQ_STEP 61.03515625
     void SetFrequencyHz(uint32_t freq);
-    void SetFrequencyReg(uint32_t freq);
+    void SetFrequencyReg(uint32_t freq, SX12XX_Radio_Number_t radioNumber = SX12XX_Radio_1);
     bool FrequencyErrorAvailable() const { return true; }
     int32_t GetFrequencyError();
     bool GetFrequencyErrorbool();
@@ -68,16 +68,17 @@ public:
     int8_t GetLastPacketSNRRaw();
     int8_t GetCurrRSSI();
     void GetLastPacketStats();
+    SX12XX_Radio_Number_t GetProcessingPacketRadio(){return SX12XX_Radio_1;}
 
     ////////////Non-blocking TX related Functions/////////////////
-    void TXnb(uint8_t * data, uint8_t size);
+    void TXnb(uint8_t * data, uint8_t size, SX12XX_Radio_Number_t radioNumber);
     /////////////Non-blocking RX related Functions///////////////
     void RXnb();
 
 private:
     // constant used for no power change pending
     // must not be a valid power register value
-    static const uint8_t PWRPENDING_NONE = 0x00;
+    static const uint8_t PWRPENDING_NONE = SX127X_MAX_OUTPUT_POWER_INVALID;
 
     SX127x_Bandwidth currBW;
     SX127x_SpreadingFactor currSF;

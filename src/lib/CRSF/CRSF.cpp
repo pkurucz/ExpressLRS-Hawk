@@ -6,7 +6,9 @@
 #include "logging.h"
 #include "helpers.h"
 
+#if defined(CRSF_TX_MODULE)
 #if defined(PLATFORM_ESP32)
+#include <soc/uart_reg.h>
 // UART0 is used since for DupleTX we can connect directly through IO_MUX and not the Matrix
 // for better performance, and on other targets (mostly using pin 13), it always uses Matrix
 HardwareSerial CRSF::Port(0);
@@ -27,7 +29,7 @@ HardwareSerial CRSF::Port(GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX);
 #elif defined(TARGET_NATIVE)
 HardwareSerial CRSF::Port = Serial;
 #endif
-Stream *CRSF::PortSecondary;
+#endif
 
 GENERIC_CRC8 crsf_crc(CRSF_CRC_POLY);
 
@@ -50,6 +52,7 @@ uint8_t CRSF::ParameterUpdateData[3] = {0};
 #if CRSF_TX_MODULE
 #define HANDSET_TELEMETRY_FIFO_SIZE 128 // this is the smallest telemetry FIFO size in ETX with CRSF defined
 
+Stream *CRSF::PortSecondary;
 static FIFO MspWriteFIFO;
 
 void (*CRSF::disconnected)() = nullptr; // called when CRSF stream is lost
@@ -76,6 +79,9 @@ uint32_t CRSF::OpenTXsyncLastSent = 0;
 uint32_t CRSF::RequestedRCpacketInterval = 5000; // default to 200hz as per 'normal'
 volatile uint32_t CRSF::RCdataLastRecv = 0;
 volatile int32_t CRSF::OpenTXsyncOffset = 0;
+volatile int32_t CRSF::OpenTXsyncWindow = 0;
+volatile int32_t CRSF::OpenTXsyncWindowSize = 0;
+volatile uint32_t CRSF::dataLastRecv = 0;
 bool CRSF::OpentxSyncActive = true;
 uint32_t CRSF::OpenTXsyncOffsetSafeMargin = 1000; // 100us
 
@@ -186,6 +192,7 @@ void CRSF::End()
 #endif // CRSF_TX_MODULE
 }
 
+#if CRSF_TX_MODULE
 void CRSF::flush_port_input(void)
 {
     // Make sure there is no garbage on the UART at the start
@@ -195,7 +202,6 @@ void CRSF::flush_port_input(void)
     }
 }
 
-#if CRSF_TX_MODULE
 void ICACHE_RAM_ATTR CRSF::sendLinkStatisticsToTX()
 {
     if (!CRSF::CRSFstate)
@@ -292,6 +298,10 @@ void ICACHE_RAM_ATTR CRSF::sendTelemetryToTX(uint8_t *data)
 void ICACHE_RAM_ATTR CRSF::setSyncParams(uint32_t PacketInterval)
 {
     CRSF::RequestedRCpacketInterval = PacketInterval;
+    CRSF::OpenTXsyncOffset = 0;
+    CRSF::OpenTXsyncWindow = 0;
+    CRSF::OpenTXsyncWindowSize = std::max((int32_t)1, (int32_t)(20000/CRSF::RequestedRCpacketInterval));
+    CRSF::OpenTXsyncLastSent -= OpenTXsyncPacketInterval;
     adjustMaxPacketSize();
 }
 
@@ -302,13 +312,28 @@ uint32_t ICACHE_RAM_ATTR CRSF::GetRCdataLastRecv()
 
 void ICACHE_RAM_ATTR CRSF::JustSentRFpacket()
 {
-    CRSF::OpenTXsyncOffset = micros() - CRSF::RCdataLastRecv;
+    // read them in this order to prevent a potential race condition
+    uint32_t last = CRSF::dataLastRecv;
+    uint32_t m = micros();
+    int32_t delta = (int32_t)(m - last);
 
-    if (CRSF::OpenTXsyncOffset > (int32_t)CRSF::RequestedRCpacketInterval) // detect overrun case when the packet arrives too late and caculate negative offsets.
+    if (delta >= (int32_t)CRSF::RequestedRCpacketInterval)
     {
-        CRSF::OpenTXsyncOffset = -(CRSF::OpenTXsyncOffset % CRSF::RequestedRCpacketInterval);
+        // missing/late packet, force resync
+        CRSF::OpenTXsyncOffset = -(delta % CRSF::RequestedRCpacketInterval) * 10;
+        CRSF::OpenTXsyncWindow = 0;
+        CRSF::OpenTXsyncLastSent -= OpenTXsyncPacketInterval;
+#ifdef DEBUG_OPENTX_SYNC
+        DBGLN("Missed packet, forced resync (%d)!", delta);
+#endif
     }
-    //DBGLN("%d, %d", CRSF::OpenTXsyncOffset, CRSF::OpenTXsyncOffsetSafeMargin / 10);
+    else
+    {
+        // The number of packets in the sync window is how many will fit in 20ms.
+        // This gives quite quite coarse changes for 50Hz, but more fine grained changes at 1000Hz.
+        CRSF::OpenTXsyncWindow = std::min(CRSF::OpenTXsyncWindow + 1, (int32_t)CRSF::OpenTXsyncWindowSize);
+        CRSF::OpenTXsyncOffset = ((CRSF::OpenTXsyncOffset * (CRSF::OpenTXsyncWindow-1)) + delta * 10) / CRSF::OpenTXsyncWindow;
+    }
 }
 
 void CRSF::disableOpentxSync()
@@ -327,7 +352,10 @@ void ICACHE_RAM_ATTR CRSF::sendSyncPacketToTX() // in values in us.
     if (CRSF::CRSFstate && (now - OpenTXsyncLastSent) >= OpenTXsyncPacketInterval)
     {
         uint32_t packetRate = CRSF::RequestedRCpacketInterval * 10; //convert from us to right format
-        int32_t offset = CRSF::OpenTXsyncOffset * 10 - CRSF::OpenTXsyncOffsetSafeMargin; // + 400us offset that that opentx always has some headroom
+        int32_t offset = CRSF::OpenTXsyncOffset - CRSF::OpenTXsyncOffsetSafeMargin; // offset so that opentx always has some headroom
+#ifdef DEBUG_OPENTX_SYNC
+        DBGLN("Offset %d", offset); // in 10ths of us (OpenTX sync unit)
+#endif
 
         struct otxSyncData {
             uint8_t extendedType; // CRSF_FRAMETYPE_OPENTX_SYNC
@@ -388,6 +416,8 @@ void ICACHE_RAM_ATTR CRSF::RcPacketToChannelsData() // data is packed as 11 bits
 bool ICACHE_RAM_ATTR CRSF::ProcessPacket()
 {
     bool packetReceived = false;
+
+    CRSF::dataLastRecv = micros();
 
     if (CRSFstate == false)
     {
@@ -646,7 +676,7 @@ void ICACHE_RAM_ATTR CRSF::handleUARTout()
     static uint8_t packageLengthRemaining = 0;
     static uint8_t sendingOffset = 0;
 
-    if (OpentxSyncActive)
+    if (OpentxSyncActive && packageLengthRemaining == 0 && SerialOutFIFO.size() == 0)
     {
         sendSyncPacketToTX(); // calculate mixer sync packet if needed
     }
@@ -877,7 +907,10 @@ bool CRSF::UARTwdt()
 
             retval = true;
         }
-        DBGLN("UART STATS Bad:Good = %u:%u", BadPktsCount, GoodPktsCount);
+#ifdef DEBUG_OPENTX_SYNC
+        if (abs((int)((1000000 / (ExpressLRS_currAirRate_Modparams->interval * ExpressLRS_currAirRate_Modparams->numOfSends)) - (int)GoodPktsCount)) > 1)
+#endif
+            DBGLN("UART STATS Bad:Good = %u:%u", BadPktsCount, GoodPktsCount);
 
         UARTwdtLastChecked = now;
         if (retval)

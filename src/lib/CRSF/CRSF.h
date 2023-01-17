@@ -42,11 +42,7 @@ public:
     #endif
     #endif
 
-
-    static HardwareSerial Port;
-    static Stream *PortSecondary; // A second UART used to mirror telemetry out on the TX, not read from
-
-    static uint32_t ChannelData[CRSF_NUM_CHANNELS];
+    static uint32_t ChannelData[CRSF_NUM_CHANNELS]; // Current state of channels, CRSF format
 
     /////Variables/////
 
@@ -54,6 +50,9 @@ public:
     static uint8_t ParameterUpdateData[3];
 
     #ifdef CRSF_TX_MODULE
+    static HardwareSerial Port;
+    static Stream *PortSecondary; // A second UART used to mirror telemetry out on the TX, not read from
+
     static void (*disconnected)();
     static void (*connected)();
 
@@ -126,15 +125,20 @@ public:
     static bool CRSFstate;
 
 private:
-    Stream *_dev;
-
     static inBuffer_U inBuffer;
+
+#if CRSF_RX_MODULE
+    Stream *_dev;
+#endif
 
 #if CRSF_TX_MODULE
     /// OpenTX mixer sync ///
     static uint32_t RequestedRCpacketInterval;
     static volatile uint32_t RCdataLastRecv;
+    static volatile uint32_t dataLastRecv;
     static volatile int32_t OpenTXsyncOffset;
+    static volatile int32_t OpenTXsyncWindow;
+    static volatile int32_t OpenTXsyncWindowSize;
     static uint32_t OpenTXsyncOffsetSafeMargin;
     static bool OpentxSyncActive;
     static uint8_t CRSFoutBuffer[CRSF_MAX_PACKET_LEN];
@@ -164,9 +168,8 @@ private:
     static void handleUARTout();
     static bool UARTwdt();
     static uint32_t autobaud();
-#endif
-
     static void flush_port_input(void);
+#endif
 };
 
 extern GENERIC_CRC8 crsf_crc;

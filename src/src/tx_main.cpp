@@ -70,28 +70,28 @@ StubbornSender MspSender;
 uint8_t CRSFinBuffer[CRSF_MAX_PACKET_LEN+1];
 
 device_affinity_t ui_devices[] = {
-  {&CRSF_device, 0},
+  {&CRSF_device, 1},
 #ifdef HAS_LED
-  {&LED_device, 1},
+  {&LED_device, 0},
 #endif
 #ifdef HAS_RGB
-  {&RGB_device, 1},
+  {&RGB_device, 0},
 #endif
   {&LUA_device, 1},
 #if defined(USE_TX_BACKPACK)
-  {&Backpack_device, 1},
+  {&Backpack_device, 0},
 #endif
 #ifdef HAS_BLE
-  {&BLE_device, 1},
+  {&BLE_device, 0},
 #endif
 #ifdef HAS_BUZZER
-  {&Buzzer_device, 1},
+  {&Buzzer_device, 0},
 #endif
 #ifdef HAS_WIFI
-  {&WIFI_device, 1},
+  {&WIFI_device, 0},
 #endif
 #ifdef HAS_BUTTON
-  {&Button_device, 1},
+  {&Button_device, 0},
 #endif
 #ifdef HAS_SCREEN
   {&Screen_device, 0},
@@ -103,9 +103,9 @@ device_affinity_t ui_devices[] = {
   {&Thermal_device, 0},
 #endif
 #if defined(GPIO_PIN_PA_PDET)
-  {&PDET_device, 1},
+  {&PDET_device, 0},
 #endif
-  {&VTX_device, 1}
+  {&VTX_device, 0}
 };
 
 #if defined(GPIO_PIN_ANT_CTRL)
@@ -339,6 +339,12 @@ void ICACHE_RAM_ATTR SetRFLinkRate(uint8_t index) // Set speed of RF link (hz)
                , uidMacSeedGet(), OtaCrcInitializer, (ModParams->radio_type == RADIO_TYPE_SX128x_FLRC)
 #endif
                );
+               
+  if (isDualRadio() && config.GetAntennaMode() == TX_RADIO_MODE_GEMINI) // Gemini mode
+  {
+    Radio.SetFrequencyReg(FHSSgetInitialGeminiFreq(), SX12XX_Radio_2);
+  }
+
   OtaUpdateSerializers(newSwitchMode, ModParams->PayloadLength);
   MspSender.setMaxPackageIndex(ELRS_MSP_MAX_PACKAGES);
   TelemetryReceiver.setMaxPackageIndex(OtaIsFullRes ? ELRS8_TELEMETRY_MAX_PACKAGES : ELRS4_TELEMETRY_MAX_PACKAGES);
@@ -358,7 +364,15 @@ void ICACHE_RAM_ATTR HandleFHSS()
   // If the next packet should be on the next FHSS frequency, do the hop
   if (!InBindingMode && modresult == 0)
   {
-    Radio.SetFrequencyReg(FHSSgetNextFreq());
+    if (isDualRadio() && config.GetAntennaMode() == TX_RADIO_MODE_GEMINI) // Gemini mode
+    {
+      Radio.SetFrequencyReg(FHSSgetNextFreq(), SX12XX_Radio_1);
+      Radio.SetFrequencyReg(FHSSgetGeminiFreq(), SX12XX_Radio_2);
+    }
+    else
+    {      
+      Radio.SetFrequencyReg(FHSSgetNextFreq());
+    }
   }
 }
 
@@ -441,11 +455,33 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   ///// Next, Calculate the CRC and put it into the buffer /////
   OtaGeneratePacketCrc(&otaPkt);
 
+  SX12XX_Radio_Number_t transmittingRadio = SX12XX_Radio_Default;
+
+  if (isDualRadio())
+  {
+    switch (config.GetAntennaMode())
+    {
+    case TX_RADIO_MODE_GEMINI:
+      transmittingRadio = SX12XX_Radio_All; // Gemini mode  
+      break;
+    case TX_RADIO_MODE_ANT_1:
+      transmittingRadio = SX12XX_Radio_1; // Single antenna tx and true diversity rx for tlm receiption.
+      break;
+    case TX_RADIO_MODE_ANT_2:
+      transmittingRadio = SX12XX_Radio_2; // Single antenna tx and true diversity rx for tlm receiption.
+      break;
+    default:
+      break;
+    }
+  }
+
+  SX12XX_Radio_Number_t clearChannelsMask = SX12XX_Radio_All;
 #if defined(Regulatory_Domain_EU_CE_2400)
-  if (ChannelIsClear())
+  clearChannelsMask = ChannelIsClear(transmittingRadio);
+  if (clearChannelsMask)
 #endif
   {
-    Radio.TXnb((uint8_t*)&otaPkt, ExpressLRS_currAirRate_Modparams->PayloadLength);
+    Radio.TXnb((uint8_t*)&otaPkt, ExpressLRS_currAirRate_Modparams->PayloadLength, transmittingRadio & clearChannelsMask);
   }
 }
 
@@ -466,6 +502,10 @@ void ICACHE_RAM_ATTR timerCallbackNormal()
   {
     crsf.JustSentRFpacket();
   }
+
+  // Do not transmit or advance FHSS/Nonce until in disconnected/connected state
+  if (connectionState == awaitingModelId)
+    return;
 
   // Tx Antenna Diversity
   if ((OtaNonce % ExpressLRS_currAirRate_Modparams->numOfSends == 0 || // Swicth with new packet data
@@ -540,34 +580,63 @@ static void UARTconnected()
   SetRFLinkRate(config.GetRate());
   if (connectionState == noCrossfire || connectionState < MODE_STATES)
   {
-    connectionState = disconnected; // set here because SetRFLinkRate may have early exited and not set the state
+    // When CRSF first connects, always go into a brief delay before
+    // starting to transmit, to make sure a ModelID update isn't coming
+    // right behind it
+    connectionState = awaitingModelId;
   }
+  // But start the timer to get OpenTX sync going and a ModelID update sent
   hwTimer.resume();
 }
 
-static void ChangeRadioParams()
+void ResetPower()
 {
-  ModelUpdatePending = false;
-
-  SetRFLinkRate(config.GetRate());
   // Dynamic Power starts at MinPower unless armed
   // (user may be turning up the power while flying and dropping the power may compromise the link)
-  POWERMGNT.setPower((config.GetDynamicPower() && !crsf.IsArmed()) ? MinPower : (PowerLevels_e)config.GetPower());
+  if (config.GetDynamicPower())
+  {
+    if (!crsf.IsArmed())
+    {
+      // if dynamic power enabled and not armed then set to MinPower
+      POWERMGNT.setPower(MinPower);
+    }
+    else if (POWERMGNT.currPower() < config.GetPower())
+    {
+      // if the new config is a higher power then set it, otherwise leave it alone
+      POWERMGNT.setPower((PowerLevels_e)config.GetPower());
+    }
+  }
+  else
+  {
+    POWERMGNT.setPower((PowerLevels_e)config.GetPower());
+  }
   // TLM interval is set on the next SYNC packet
 #if defined(Regulatory_Domain_EU_CE_2400)
   LBTEnabled = (config.GetPower() > PWR_10mW);
 #endif
 }
 
-void ICACHE_RAM_ATTR ModelUpdateReq()
+static void ChangeRadioParams()
 {
-  // There's a near 100% chance we started up transmitting at Model 0's
-  // rate before we got the set modelid command from the handset, so do the
-  // normal way of switching rates with syncspam first (but only if changing)
+  ModelUpdatePending = false;
+  SetRFLinkRate(config.GetRate());
+  ResetPower();
+}
+
+void ModelUpdateReq()
+{
+  // Force synspam with the current rate parameters in case already have a connection established
   if (config.SetModelId(crsf.getModelID()))
   {
     syncSpamCounter = syncSpamAmount;
     ModelUpdatePending = true;
+  }
+
+  // Jump from awaitingModelId to transmitting to break the startup delay now
+  // that the ModelID has been confirmed by the handset
+  if (connectionState == awaitingModelId)
+  {
+    connectionState = disconnected;
   }
 }
 
@@ -629,6 +698,11 @@ static void CheckConfigChangePending()
 
 bool ICACHE_RAM_ATTR RXdoneISR(SX12xxDriverCommon::rx_status const status)
 {
+  if (LQCalc.currentIsSet())
+  {
+    return false; // Already received tlm, do not run ProcessTLMpacket() again.
+  }
+
   bool packetSuccessful = ProcessTLMpacket(status);
   busyTransmitting = false;
   return packetSuccessful;
@@ -636,18 +710,26 @@ bool ICACHE_RAM_ATTR RXdoneISR(SX12xxDriverCommon::rx_status const status)
 
 void ICACHE_RAM_ATTR TXdoneISR()
 {
-  HandleFHSS();
-  HandlePrepareForTLM();
-#if defined(Regulatory_Domain_EU_CE_2400)
-  if (TelemetryRcvPhase != ttrpPreReceiveGap)
+  if (!busyTransmitting)
   {
-    // Start RX for Listen Before Talk early because it takes about 100us
-    // from RX enable to valid instant RSSI values are returned.
-    // If rx was already started by TLM prepare above, this call will let RX
-    // continue as normal.
-    BeginClearChannelAssessment();
+    return; // Already finished transmission and do not call HandleFHSS() a second time, which may hop the frequency!
   }
+
+  if (connectionState != awaitingModelId)
+  {
+    HandleFHSS();
+    HandlePrepareForTLM();
+#if defined(Regulatory_Domain_EU_CE_2400)
+    if (TelemetryRcvPhase != ttrpPreReceiveGap)
+    {
+      // Start RX for Listen Before Talk early because it takes about 100us
+      // from RX enable to valid instant RSSI values are returned.
+      // If rx was already started by TLM prepare above, this call will let RX
+      // continue as normal.
+      BeginClearChannelAssessment();
+    }
 #endif // non-CE
+  }
   busyTransmitting = false;
 }
 
@@ -671,7 +753,9 @@ static void UpdateConnectDisconnectStatus()
       DBGLN("got downlink conn");
     }
   }
-  else
+  // If past RX_LOSS_CNT, or in awaitingModelId state for longer than DisconnectTimeoutMs, go to disconnected
+  else if (connectionState == connected ||
+    (now - rfModeLastChangedMS) > ExpressLRS_currAirRate_RFperfParams->DisconnectTimeoutMs)
   {
     connectionState = disconnected;
     connectionHasModelMatch = true;
@@ -776,8 +860,12 @@ void EnterBindingMode()
 
   // Start attempting to bind
   // Lock the RF rate and freq while binding
-  SetRFLinkRate(RATE_BINDING);
+  SetRFLinkRate(enumRatetoIndex(RATE_BINDING));
   Radio.SetFrequencyReg(GetInitialFreq());
+  if (isDualRadio() && config.GetAntennaMode() == TX_RADIO_MODE_GEMINI) // Gemini mode
+  {
+    Radio.SetFrequencyReg(FHSSgetInitialGeminiFreq(), SX12XX_Radio_2);
+  }
   // Start transmitting again
   hwTimer.resume();
 
@@ -893,8 +981,8 @@ static void setupTarget()
   digitalWrite(GPIO_PIN_BLUETOOTH_EN, HIGH);
   pinMode(GPIO_PIN_UART1RX_INVERT, OUTPUT); // RX1 inverter (TX handled in CRSF)
   digitalWrite(GPIO_PIN_UART1RX_INVERT, HIGH);
-  pinMode(GPIO_PIN_ANT_CTRL, OUTPUT);
-  digitalWrite(GPIO_PIN_ANT_CTRL, LOW); // LEFT antenna
+  pinMode(GPIO_PIN_ANT_CTRL_FIXED, OUTPUT);
+  digitalWrite(GPIO_PIN_ANT_CTRL_FIXED, LOW); // LEFT antenna
   HardwareSerial *uart2 = new HardwareSerial(USART2);
   uart2->begin(57600);
   CRSF::PortSecondary = uart2;
@@ -938,6 +1026,23 @@ bool setupHardwareFromOptions()
 #endif
 
   return true;
+}
+
+static void cyclePower()
+{
+  // Only change power if we are running normally
+  if (connectionState < MODE_STATES)
+  {
+    PowerLevels_e curr = POWERMGNT::currPower();
+    if (curr == POWERMGNT::getMaxPower())
+    {
+      POWERMGNT::setPower(POWERMGNT::getMinPower());
+    }
+    else
+    {
+      POWERMGNT::incPower();
+    }
+  }
 }
 
 void setup()
@@ -1008,6 +1113,11 @@ void setup()
     }
   }
 
+#if defined(HAS_BUTTON)
+  registerButtonFunction(ACTION_BIND, EnterBindingMode);
+  registerButtonFunction(ACTION_INCREASE_POWER, cyclePower);
+#endif
+
   devicesStart();
 }
 
@@ -1029,6 +1139,9 @@ void loop()
 
   // Update UI devices
   devicesUpdate(now);
+
+  // Not a device because it must be run on the loop core
+  checkBackpackUpdate();
 
   #if defined(PLATFORM_ESP8266) || defined(PLATFORM_ESP32)
     // If the reboot time is set and the current time is past the reboot time then reboot.

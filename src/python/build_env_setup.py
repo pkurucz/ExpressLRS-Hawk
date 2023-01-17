@@ -1,9 +1,11 @@
 Import("env", "projenv")
+import os
 import stlink
 import UARTupload
 import opentx
 import upload_via_esp8266_backpack
 import esp_compress
+import BFinitPassthrough
 import ETXinitPassthrough
 import UnifiedConfiguration
 
@@ -69,24 +71,51 @@ if stm and "$UPLOADER $UPLOADERFLAGS" in env.get('UPLOADCMD', '$UPLOADER $UPLOAD
         env.Replace(UPLOADCMD=stlink.on_upload)
 
 elif platform in ['espressif8266']:
-    env.AddPostAction("buildprog", esp_compress.compressFirmware)
-    env.AddPreAction("${BUILD_DIR}/spiffs.bin",
-                     [esp_compress.compress_files])
-    env.AddPreAction("${BUILD_DIR}/${ESP8266_FS_IMAGE_NAME}.bin",
-                     [esp_compress.compress_files])
-    env.AddPostAction("${BUILD_DIR}/${ESP8266_FS_IMAGE_NAME}.bin",
-                     [esp_compress.compress_fs_bin])
     if "_WIFI" in target_name:
         env.Replace(UPLOAD_PROTOCOL="custom")
         env.Replace(UPLOADCMD=upload_via_esp8266_backpack.on_upload)
+    elif "_UART" in target_name:
+        env.Replace(
+            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
+            UPLOAD_SPEED=460800,
+            UPLOADERFLAGS=[
+                "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
+                "-c", "esp8266", "--before", "default_reset", "--after", "soft_reset", "write_flash"
+            ]
+        )
+    elif "_BETAFLIGHTPASSTHROUGH" in target_name:
+        env.Replace(
+            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
+            UPLOAD_SPEED=420000,
+            UPLOADERFLAGS=[
+                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
+                "-c", "esp8266", "--before", "no_reset", "--after", "soft_reset", "write_flash"
+            ]
+        )
+        env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
 
 elif platform in ['espressif32']:
     if "_WIFI" in target_name:
         env.Replace(UPLOAD_PROTOCOL="custom")
         env.Replace(UPLOADCMD=upload_via_esp8266_backpack.on_upload)
+    elif "_UART" in target_name:
+        env.Replace(
+            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
+            UPLOAD_SPEED=460800
+        )
     if "_ETX" in target_name:
+        env.Replace(UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py")
         env.AddPreAction("upload", ETXinitPassthrough.init_passthrough)
-        env.AddPreAction("uploadfs", ETXinitPassthrough.init_passthrough)
+    elif "_BETAFLIGHTPASSTHROUGH" in target_name:
+        env.Replace(
+            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
+            UPLOAD_SPEED=420000,
+            UPLOADERFLAGS=[
+                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
+                "-c", "esp32", "--before", "no_reset", "--after", "hard_reset", "write_flash"
+            ]
+        )
+        env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
 
 if "_WIFI" in target_name:
     add_target_uploadoption("uploadconfirm", "Do not upload, just send confirm")
@@ -98,4 +127,11 @@ if "_WIFI" in target_name:
 if platform != 'native':
     add_target_uploadoption("uploadforce", "Upload even if target mismatch")
 
+# Remove stale binary so the platform is forced to build a new one and attach options/hardware-layout files
+try:
+    os.remove(env['PROJECT_BUILD_DIR'] + '/' + env['PIOENV'] +'/'+ env['PROGNAME'] + '.bin')
+except FileNotFoundError:
+    None
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", UnifiedConfiguration.appendConfiguration)
+if platform in ['espressif8266'] and "_WIFI" in target_name:
+    env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", esp_compress.compressFirmware)
