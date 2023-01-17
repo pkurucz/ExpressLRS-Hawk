@@ -191,6 +191,16 @@
                 "prior_target_name": "DIY_900_TX_ESP32_SX127x_RFM95"
             }
         },
+        "rx_400": {
+            "esp32_diversity": {
+                "product_name": "DIY 400MHz Diversity RX",
+                "lua_name": "ELRS 400 Diversiry RX",
+                "layout_file": "Generic 400 True Diversity PWMP6.json",
+                "upload_methods": ["uart", "wifi", "betaflight"],
+                "platform": "esp32",
+                "firmware": "Unified_ESP32_400_RX"
+            }
+        },
         "rx_900": {
             "huzzah": {
                 "product_name": "DIY Huzzah RFM95 900MHz TX",
@@ -200,6 +210,14 @@
                 "platform": "esp8285",
                 "firmware": "Unified_ESP8285_900_RX",
                 "prior_target_name": "DIY_900_RX_HUZZAH_RFM95W"
+            },
+            "esp32_diversity": {
+                "product_name": "DIY 900MHz Diversity RX",
+                "lua_name": "ELRS 900 Diversiry RX",
+                "layout_file": "Generic 900 True Diversity PWMP6.json",
+                "upload_methods": ["uart", "wifi", "betaflight"],
+                "platform": "esp32",
+                "firmware": "Unified_ESP32_900_RX"
             }
         },
         "tx_2400": {

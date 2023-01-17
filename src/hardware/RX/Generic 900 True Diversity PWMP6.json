@@ -1,0 +1,31 @@
+{
+    "serial_rx": 3,
+    "serial_tx": 1,
+
+    "radio_miso": 33,
+    "radio_mosi": 32,
+    "radio_rst": 26,
+    "radio_sck": 25,
+
+    "button": 0,
+    "led": 22,
+
+    "radio_dio0": 37,
+    "radio_nss": 27,
+
+    "radio_dio0_2": 34,
+    "radio_nss_2": 13,
+
+    "power_min": 2,
+    "power_high": 2,
+    "power_max": 2,
+    "power_default": 2,
+    "power_control": 0,
+    "power_values": [8,12,15],
+
+    "vbat": 99,
+    "vbat_offset": 0,
+    "vbat_scale": 1,
+
+    "pwm_outputs": [1,1,1,1,1,1]
+}
