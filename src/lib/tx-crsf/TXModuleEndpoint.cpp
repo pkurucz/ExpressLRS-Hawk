@@ -1,11 +1,14 @@
 #include "TXModuleEndpoint.h"
 
 #include "rxtx_intf.h"
+#include "CRSFRouter.h"
 #include "CRSFHandset.h"
 #include "logging.h"
 
 #include "FHSS.h"
 #include "device.h"
+#include "msp.h"
+#include "msptypes.h"
 #include "config.h"
 
 #if defined(PLATFORM_ESP32)
@@ -41,6 +44,11 @@ void TXModuleEndpoint::handleMessage(const crsf_header_t *message)
     const crsf_frame_type_e packetType = message->type;
 
     const auto extMessage = (crsf_ext_header_t *)message;
+    if (handleRxTxMessage(message))
+    {
+        return;
+    }
+
     // Enter Binding Mode
     if (packetType == CRSF_FRAMETYPE_COMMAND
         && extMessage->frame_size >= 6 // official CRSF has 7 bytes with two CRCs
@@ -63,24 +71,20 @@ void TXModuleEndpoint::handleMessage(const crsf_header_t *message)
         || packetType == CRSF_FRAMETYPE_PARAMETER_READ
         || packetType == CRSF_FRAMETYPE_PARAMETER_WRITE)
     {
-        // dodgy hack because 'our' LUA script uses a different origin and we need to reply to the radio!
-        bool isElrsCalling = extMessage->orig_addr == CRSF_ADDRESS_ELRS_LUA;
-        crsf_addr_e requestOrigin = isElrsCalling ? CRSF_ADDRESS_RADIO_TRANSMITTER : extMessage->orig_addr;
-
         if (packetType == CRSF_FRAMETYPE_PARAMETER_WRITE)
         {
             if (extMessage->payload[0] == 0)
             {
                 // special case for elrs linkstat request
                 DBGVLN("ELRS status request");
-                sendELRSstatus(requestOrigin);
+                sendELRSstatus(extMessage->orig_addr);
             }
             else if (extMessage->payload[0] == 0x2E)
             {
                 supressCriticalErrors();
             }
         }
-        parameterUpdateReq(requestOrigin, isElrsCalling, packetType, extMessage->payload[0], extMessage->payload[1]);
+        parameterUpdateReq(extMessage->orig_addr, packetType, extMessage->payload[0], extMessage->payload + 1);
     }
 }
 
@@ -125,6 +129,7 @@ void TXModuleEndpoint::RcPacketToChannelsData(const crsf_header_t *message) // d
     //      1      |   x   | Arm using CH5, armed/not armed depending on CH5 value
     //
 
+    bool armCmd;
     if (message->frame_size == CRSF_FRAME_SIZE(sizeof(crsf_channels_t)))
     {
         armCmd = CRSF_to_BIT(localChannelData[AUX1]);       // no status byte present, us CH5 to arm
@@ -143,10 +148,9 @@ void TXModuleEndpoint::RcPacketToChannelsData(const crsf_header_t *message) // d
     }
 
     // monitoring arming state
-    if (lastArmCmd != armCmd)
+    if (isArmed != armCmd)
     {
-        handset->SetArmed(armCmd);
-        lastArmCmd = armCmd;
+        isArmed = armCmd;
 #if defined(PLATFORM_ESP32)
         devicesTriggerEvent(EVENT_ARM_FLAG_CHANGED);
 #endif

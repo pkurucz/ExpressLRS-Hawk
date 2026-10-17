@@ -1,8 +1,7 @@
 #include "CRSFRouter.h"
 
+#include "OTA.h"
 #include "msptypes.h"
-
-elrsLinkStatistics_t linkStats {};
 
 void CRSFRouter::addConnector(CRSFConnector *connector)
 {
@@ -105,8 +104,8 @@ void CRSFRouter::SetHeaderAndCrc(crsf_header_t *frame, const crsf_frame_type_e f
     frame->frame_size = frameSize;
     frame->type = frameType;
 
-    const uint8_t crc = crsf_crc.calc((uint8_t *)frame + CRSF_FRAME_NOT_COUNTED_BYTES, frameSize - 1, 0);
-    ((uint8_t*)frame)[frameSize + CRSF_FRAME_NOT_COUNTED_BYTES - 1] = crc;
+    const uint8_t crc = crsf_crc.calc((uint8_t *)&frame->type, frameSize - 1);
+    frame->payload[frameSize - CRSF_FRAME_NOT_COUNTED_BYTES] = crc;
 }
 
 void CRSFRouter::SetExtendedHeaderAndCrc(crsf_ext_header_t *frame, const crsf_frame_type_e frameType, const uint8_t frameSize, const crsf_addr_e destAddr, const crsf_addr_e origAddr)
@@ -116,16 +115,12 @@ void CRSFRouter::SetExtendedHeaderAndCrc(crsf_ext_header_t *frame, const crsf_fr
     SetHeaderAndCrc((crsf_header_t *)frame, frameType, frameSize);
 }
 
-void CRSFRouter::makeLinkStatisticsPacket(uint8_t *buffer)
+void CRSFRouter::makeLinkStatisticsPacket(crsf_header_t *frame)
 {
     // Note: size of crsfLinkStatistics_t used, not full elrsLinkStatistics_t
     constexpr uint8_t payloadLen = sizeof(crsfLinkStatistics_t);
-
-    buffer[0] = CRSF_SYNC_BYTE;
-    buffer[1] = CRSF_FRAME_SIZE(payloadLen);
-    buffer[2] = CRSF_FRAMETYPE_LINK_STATISTICS;
-    memcpy(&buffer[3], &linkStats, payloadLen);
-    buffer[payloadLen + 3] = crsf_crc.calc(&buffer[2], payloadLen + 1);
+    memcpy(frame->payload, &linkStats, payloadLen);
+    SetHeaderAndCrc(frame, CRSF_FRAMETYPE_LINK_STATISTICS, CRSF_FRAME_SIZE(payloadLen));
 }
 
 void CRSFRouter::SetMspV2Request(uint8_t *frame, const uint16_t function, const uint8_t *payload, const uint8_t payloadLength)
@@ -143,18 +138,18 @@ void CRSFRouter::SetMspV2Request(uint8_t *frame, const uint16_t function, const 
 
 void CRSFRouter::AddMspMessage(const mspPacket_t *packet, const crsf_addr_e destination, const crsf_addr_e origin)
 {
-    if (packet->payloadSize > ENCAPSULATED_MSP_MAX_PAYLOAD_SIZE)
+    // This allows up to 54 bytes of payload in addition to the CRSF header/CRC and MSP header/CRC
+    const uint8_t totalBufferLen = CRSF_FRAME_NOT_COUNTED_BYTES + CRSF_FRAME_LENGTH_EXT_TYPE_CRC + ENCAPSULATED_MSP_HEADER_CRC_LEN + packet->payloadSize;
+    if (totalBufferLen > CRSF_MAX_PACKET_LEN)
     {
         return;
     }
 
-    const uint8_t totalBufferLen = packet->payloadSize + ENCAPSULATED_MSP_HEADER_CRC_LEN + CRSF_FRAME_LENGTH_EXT_TYPE_CRC + CRSF_FRAME_NOT_COUNTED_BYTES;
-    uint8_t outBuffer[ENCAPSULATED_MSP_MAX_FRAME_LEN + CRSF_FRAME_LENGTH_EXT_TYPE_CRC + CRSF_FRAME_NOT_COUNTED_BYTES];
-
     // CRSF extended frame header
+    uint8_t outBuffer[totalBufferLen];
     outBuffer[0] = CRSF_SYNC_BYTE;                                                                         // address
     outBuffer[1] = packet->payloadSize + ENCAPSULATED_MSP_HEADER_CRC_LEN + CRSF_FRAME_LENGTH_EXT_TYPE_CRC; // length
-    outBuffer[2] = CRSF_FRAMETYPE_MSP_WRITE;                                                               // packet type
+    outBuffer[2] = (packet->type == MSP_PACKET_RESPONSE) ? CRSF_FRAMETYPE_MSP_RESP : CRSF_FRAMETYPE_MSP_WRITE;  // packet type
     outBuffer[3] = destination;                                                                            // destination
     outBuffer[4] = origin;                                                                                 // origin
 

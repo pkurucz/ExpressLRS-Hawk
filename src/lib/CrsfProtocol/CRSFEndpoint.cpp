@@ -1,6 +1,5 @@
+#include "CRSFEndpoint.h"
 #include "CRSFRouter.h"
-
-#include "CRSFParameters.h"
 
 #include "logging.h"
 #include "options.h"
@@ -179,7 +178,7 @@ uint8_t *CRSFEndpoint::folderParameterToArray(const folderParameter *parameter, 
     return childParameters;
 }
 
-uint8_t CRSFEndpoint::sendParameter(const crsf_addr_e origin, const bool isElrs, const crsf_frame_type_e frameType, const uint8_t fieldChunk, const propertiesCommon *parameter)
+uint8_t CRSFEndpoint::sendParameter(const crsf_addr_e origin, const crsf_frame_type_e frameType, const uint8_t fieldChunk, const propertiesCommon *parameter)
 {
     const uint8_t dataType = parameter->type & CRSF_FIELD_TYPE_MASK;
 
@@ -192,10 +191,6 @@ uint8_t CRSFEndpoint::sendParameter(const crsf_addr_e origin, const bool isElrs,
     chunkBuffer[3] = dataType;
     // Set the hidden flag
     chunkBuffer[3] |= parameter->type & CRSF_FIELD_HIDDEN ? 0x80 : 0;
-    if (isElrs)
-    {
-        chunkBuffer[3] |= parameter->type & CRSF_FIELD_ELRS_HIDDEN ? 0x80 : 0;
-    }
     uint8_t paramInformation[CRSF_MAX_PACKET_LEN];
 
     // Copy the name to the buffer starting at chunkBuffer[4]
@@ -258,10 +253,10 @@ uint8_t CRSFEndpoint::sendParameter(const crsf_addr_e origin, const bool isElrs,
     return chunkCnt - (fieldChunk + 1);
 }
 
-void CRSFEndpoint::pushResponseChunk(commandParameter *cmd, const bool isElrs)
+void CRSFEndpoint::pushResponseChunk(commandParameter *cmd)
 {
     DBGVLN("sending response for [%s] chunk=%u step=%u", cmd->common.name, nextStatusChunk, cmd->step);
-    if (sendParameter(requestOrigin, isElrs, CRSF_FRAMETYPE_PARAMETER_SETTINGS_ENTRY, nextStatusChunk, (propertiesCommon *)cmd) == 0)
+    if (sendParameter(requestOrigin, CRSF_FRAMETYPE_PARAMETER_SETTINGS_ENTRY, nextStatusChunk, (propertiesCommon *)cmd) == 0)
     {
         nextStatusChunk = 0;
     }
@@ -276,7 +271,7 @@ void CRSFEndpoint::sendCommandResponse(commandParameter *cmd, const commandStep_
     cmd->step = step;
     cmd->info = message;
     nextStatusChunk = 0;
-    pushResponseChunk(cmd, false);
+    pushResponseChunk(cmd);
 }
 
 void CRSFEndpoint::registerParameter(void *definition, const parameterHandlerCallback &callback, const uint8_t parent)
@@ -296,27 +291,50 @@ void CRSFEndpoint::registerParameter(void *definition, const parameterHandlerCal
     paramCallbacks[lastParameter] = callback;
 }
 
-void CRSFEndpoint::parameterUpdateReq(const crsf_addr_e origin, const bool isElrs, const uint8_t parameterType, const uint8_t parameterIndex, const uint8_t parameterArg)
+void CRSFEndpoint::parameterUpdateReq(const crsf_addr_e origin, const uint8_t parameterType, const uint8_t parameterIndex, void *payload)
 {
     propertiesCommon *parameter = paramDefinitions[parameterIndex];
     requestOrigin = origin;
+    uint8_t parameterArg = *((uint8_t *)payload);
 
     switch (parameterType)
     {
     case CRSF_FRAMETYPE_PARAMETER_WRITE:
         if (parameterIndex < MAX_CRSF_PARAMETERS && paramCallbacks[parameterIndex])
         {
-            DBGLN("Set parameter [%s]=%u", parameter->name, parameterArg);
+            uint8_t *argBytes = (uint8_t*)payload;
+            int32_t arg = 0;
+            switch (parameter->type)
+            {
+                case CRSF_UINT32:
+                case CRSF_INT32:
+                    arg = (argBytes[0] << 24) | (argBytes[1] << 16) | (argBytes[2] << 8) | argBytes[3];
+                    if (parameter->type == CRSF_INT32) arg = (int32_t)arg;
+                    break;
+                case CRSF_UINT16:
+                case CRSF_INT16:
+                    arg = (argBytes[0] << 8) | argBytes[1];
+                    if (parameter->type == CRSF_INT16) arg = (int16_t)arg;
+                    break;
+                case CRSF_UINT8:
+                case CRSF_INT8:
+                default:
+                    arg = argBytes[0];
+                    if (parameter->type == CRSF_INT8) arg = (int8_t)arg;
+                    break;
+            }
+            DBGLN("Set parameter [%s]=%u", parameter->name, arg);
+
             // While the command is executing, the handset will send `WRITE state=lcsQuery`.
             // paramCallbacks will set the value when nextStatusChunk == 0, or send any
             // remaining chunks when nextStatusChunk != 0
             if (parameterArg == lcsQuery && nextStatusChunk != 0)
             {
-                pushResponseChunk((commandParameter *)parameter, isElrs);
+                pushResponseChunk((commandParameter *)parameter);
             }
             else
             {
-                paramCallbacks[parameterIndex](parameter, parameterArg);
+                paramCallbacks[parameterIndex](parameter, arg);
             }
         }
         break;
@@ -327,7 +345,7 @@ void CRSFEndpoint::parameterUpdateReq(const crsf_addr_e origin, const bool isElr
         break;
 
     case CRSF_FRAMETYPE_PARAMETER_READ: {
-        DBGVLN("Read parameter %u %u", fieldId, fieldChunk);
+        DBGVLN("Read parameter %u %u", parameterIndex, parameterArg);
         if (parameterIndex < MAX_CRSF_PARAMETERS && parameter)
         {
             const auto field = (commandParameter *)parameter;
@@ -338,7 +356,7 @@ void CRSFEndpoint::parameterUpdateReq(const crsf_addr_e origin, const bool isElr
                 field->step = lcsIdle;
                 field->info = "";
             }
-            sendParameter(origin, isElrs, CRSF_FRAMETYPE_PARAMETER_SETTINGS_ENTRY, parameterArg, &field->common);
+            sendParameter(origin, CRSF_FRAMETYPE_PARAMETER_SETTINGS_ENTRY, parameterArg, &field->common);
         }
     }
     break;

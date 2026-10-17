@@ -1,7 +1,7 @@
 
 #include <dynpower.h>
 
-#include "CRSFRouter.h"
+#include "OTA.h"
 #include "POWERMGNT.h"
 #include "config.h"
 #include "logging.h"
@@ -26,6 +26,7 @@
 
 // SNR-based increment defines
 #define DYNPOWER_LQ_THRESH_DN 95          // Min LQ for lowering power using SNR-based power lowering
+constexpr int8_t SNR1dB = SNR_SCALE(1.0); // SNR 1dB scaled
 
 template<uint8_t K, uint8_t SHIFT>
 class MovingAvg
@@ -105,8 +106,7 @@ void DynamicPower_Update(uint32_t now)
   // =============  DYNAMIC_POWER_BOOST: Switch-triggered power boost up ==============
   // Or if telemetry is lost while armed (done up here because dynpower_updated is only updated on telemetry)
   uint8_t boostChannel = config.GetBoostChannel();
-  bool armed = handset->IsArmed();
-  if ((connectionState == disconnected && armed) ||
+  if ((connectionState == disconnected && isArmed) ||
     (boostChannel && (CRSF_to_BIT(ChannelData[AUX9 + boostChannel - 1]) == 0)))
   {
     DynamicPower_SetToConfigPower();
@@ -114,14 +114,16 @@ void DynamicPower_Update(uint32_t now)
   }
 
   // How much available power is left for incremental increases
-  uint8_t powerHeadroom = (uint8_t)config.GetPower() - (uint8_t)POWERMGNT::currPower();
+  uint8_t configPower = (uint8_t)config.GetPower();
+  uint8_t currPower = (uint8_t)POWERMGNT::currPower();
+  uint8_t powerHeadroom = (configPower > currPower) ? configPower - currPower : 0;
 
   if (lastTlmMissed)
   {
     // If armed and missing telemetry, raise the power, but only after the first LinkStats is missed (which come
     // at most every 512ms). This delays the first increase, then will bump it once for each missed TLM after that
     // state == connected is not used: unplugging an RX will be connected and will boost power to max before disconnect
-    if (armed && (powerHeadroom > 0))
+    if (isArmed && (powerHeadroom > 0))
     {
       uint32_t linkstatsInterval = ExpressLRS_currTlmDenom * ExpressLRS_currAirRate_Modparams->interval / (1000U / 2U);
       linkstatsInterval = std::max(linkstatsInterval, (uint32_t)512U);
@@ -191,7 +193,7 @@ void DynamicPower_Update(uint32_t now)
     int8_t snr_stat_threshold_up = ExpressLRS_currAirRate_RFperfParams->DynpowerSnrThreshUp;
     int8_t snr_stat_threshold_dn = ExpressLRS_currAirRate_RFperfParams->DynpowerSnrThreshDn;
 
-    // Incorporate the current value if LQ is meets the desired LQ standard
+    // Incorporate the current value if LQ meets the desired LQ standard
     if (lq_current >= 99)
     {
         dynpower_stat_snr.add(snrScaled);
@@ -208,16 +210,17 @@ void DynamicPower_Update(uint32_t now)
       int32_t scale_factor_numerator = 13;
       if (lq_current < 100) {
         // scale factor will be 1 (=-0.25 sd for power up threshold) when LQ is 85
-        scale_factor_numerator = std::max((int32_t)(scale_factor_numerator - ((100 - lq_current) * (scale_factor_numerator-1)) / 15), (int32_t)1);
+        scale_factor_numerator = std::max((int32_t)(scale_factor_numerator - ((100 - lq_current) * (scale_factor_numerator - 1)) / 15), (int32_t)1);
       }
 
-      int8_t snr_thre_up_scaled = static_cast<int8_t>((snr_stat_mean - snr_stat_stdev*scale_factor_numerator/4)/16); // Dynamic scale based on LQ
-      int8_t snr_thre_dn_scaled = static_cast<int8_t>((snr_stat_mean + snr_stat_stdev*3/2)/16); // +1.5 sd
-      int8_t snr_thre_up_limit = static_cast<int8_t>((snr_stat_mean)/16)-SNR_SCALE(1.0); // to ensure at least -1.0 dB split between thresholds
+      int8_t snr_thre_up_scaled = static_cast<int8_t>((snr_stat_mean - (snr_stat_stdev * scale_factor_numerator) / 4) / 16);  // Dynamic scale based on LQ
+      int8_t snr_thre_dn_scaled = static_cast<int8_t>((snr_stat_mean + (snr_stat_stdev / 2)) / 16);                           // fixed +0.5sd
+      int8_t snr_thre_up_limit = snr_thre_dn_scaled - SNR1dB;                                                                 // 1dB min threshold separation
 
-      //DBGLN("cur=%d tup=%d tdn=%d lim=%d mean=%d sd=%d", snrScaled, snr_thre_up_scaled, snr_thre_dn_scaled, snr_thre_up_limit, snr_stat_mean, snr_stat_stdev);
       snr_stat_threshold_up = std::min(snr_thre_up_scaled, snr_thre_up_limit);
       snr_stat_threshold_dn = snr_thre_dn_scaled;
+      //DBGLN("cur=%d tup=%d tdn=%d lim=%d mean=%d sd=%d", snrScaled, snr_thre_up_scaled, snr_thre_dn_scaled, snr_thre_up_limit, snr_stat_mean, snr_stat_stdev);
+      //DBGLN("cur %d t_up %d t_dn %d lqavg %d", snrScaled, snr_stat_threshold_up, snr_stat_threshold_dn, lq_avg);
     }
 
     // =============  SNR-based power increment ==============

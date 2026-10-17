@@ -127,6 +127,7 @@ transitioning from FS mode and the other from Standby mode. This causes the tx d
     CommitOutputPower();
     if (OPT_USE_HARDWARE_DCDC)
     {
+        DBGLN("Enabling DCDC regulator");
         hal.WriteCommand(SX1280_RADIO_SET_REGULATORMODE, SX1280_USE_DCDC, SX12XX_Radio_All);        // Enable DCDC converter instead of LDO
     }
 
@@ -145,9 +146,9 @@ void SX1280Driver::startCWTest(uint32_t freq, SX12XX_Radio_Number_t radioNumber)
 
 void SX1280Driver::Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t regfreq,
                           uint8_t PreambleLength, bool InvertIQ, uint8_t _PayloadLength,
-                          uint32_t flrcSyncWord, uint16_t flrcCrcSeed, uint8_t flrc)
+                          uint32_t flrcSyncWord, uint16_t flrcCrcSeed, RadioBandMod::Combined modulation)
 {
-    uint8_t const mode = (flrc) ? SX1280_PACKET_TYPE_FLRC : SX1280_PACKET_TYPE_LORA;
+    const uint8_t mode = RadioBandMod::isFLRC(modulation) ? SX1280_PACKET_TYPE_FLRC : SX1280_PACKET_TYPE_LORA;
 
     PayloadLength = _PayloadLength;
     IQinverted = InvertIQ;
@@ -176,6 +177,7 @@ void SX1280Driver::Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t regfreq,
     uint16_t dio1Mask = SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE;
     uint16_t irqMask  = SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE | SX1280_IRQ_SYNCWORD_VALID | SX1280_IRQ_SYNCWORD_ERROR | SX1280_IRQ_CRC_ERROR;
     SetDioIrqParams(irqMask, dio1Mask);
+    SetFIFOaddr(SX1280_TX_BUFFER_BASE, SX1280_RX_BUFFER_BASE);
 }
 
 /***
@@ -489,12 +491,12 @@ void ICACHE_RAM_ATTR SX1280Driver::TXnb(uint8_t * data, bool sendGeminiBuffer, u
     RFAMP.TXenable(radioNumber); // do first to allow PA stablise
     if (sendGeminiBuffer)
     {
-        hal.WriteBuffer(0x00, data, PayloadLength, SX12XX_Radio_1);
-        hal.WriteBuffer(0x00, dataGemini, PayloadLength, SX12XX_Radio_2);
+        hal.WriteBuffer(SX1280_TX_BUFFER_BASE, data, PayloadLength, SX12XX_Radio_1);
+        hal.WriteBuffer(SX1280_TX_BUFFER_BASE, dataGemini, PayloadLength, SX12XX_Radio_2);
     }
     else
     {
-        hal.WriteBuffer(0x00, data, PayloadLength, radioNumber);
+        hal.WriteBuffer(SX1280_TX_BUFFER_BASE, data, PayloadLength, radioNumber);
     }
 
     instance->SetMode(SX1280_MODE_TX, radioNumber);
@@ -516,7 +518,11 @@ bool ICACHE_RAM_ATTR SX1280Driver::RXnbISR(uint16_t irqStatus, SX12XX_Radio_Numb
     }
     if (fail == SX12XX_RX_OK)
     {
-        uint8_t const FIFOaddr = GetRxBufferAddr(radioNumber);
+        uint8_t FIFOaddr = 0;
+        if (!GetRxBufferAddr(radioNumber, &FIFOaddr))
+        {
+            return false;
+        }
         hal.ReadBuffer(FIFOaddr, RXdataBuffer, PayloadLength, radioNumber);
     }
 
@@ -529,18 +535,14 @@ void ICACHE_RAM_ATTR SX1280Driver::RXnb()
     SetMode(SX1280_MODE_RX_CONT, SX12XX_Radio_All);
 }
 
-uint8_t ICACHE_RAM_ATTR SX1280Driver::GetRxBufferAddr(SX12XX_Radio_Number_t radioNumber)
+bool ICACHE_RAM_ATTR SX1280Driver::GetRxBufferAddr(SX12XX_Radio_Number_t radioNumber, uint8_t *rxBufferAddr)
 {
     WORD_ALIGNED_ATTR uint8_t status[2] = {0};
-    hal.ReadCommand(SX1280_RADIO_GET_RXBUFFERSTATUS, status, 2, radioNumber);
-    return status[1];
-}
+    const auto chipStatus = hal.ReadCommand(SX1280_RADIO_GET_RXBUFFERSTATUS, status, 2, radioNumber);
 
-void ICACHE_RAM_ATTR SX1280Driver::GetStatus(SX12XX_Radio_Number_t radioNumber)
-{
-    uint8_t status = 0;
-    hal.ReadCommand(SX1280_RADIO_GET_STATUS, (uint8_t *)&status, 1, radioNumber);
-    DBGLN("Status: %x, %x, %x", (0b11100000 & status) >> 5, (0b00011100 & status) >> 2, 0b00000001 & status);
+    *rxBufferAddr = status[1];
+
+    return chipStatus == (SX1280_STATUS_CIRCUIT_MODE_RX | SX1280_STATUS_COMMAND_DATA_AVAILABLE);
 }
 
 bool ICACHE_RAM_ATTR SX1280Driver::GetFrequencyErrorbool(SX12XX_Radio_Number_t radioNumber)
@@ -588,9 +590,12 @@ void ICACHE_RAM_ATTR SX1280Driver::CheckForSecondPacket()
             }
             if (second_rx_fail == SX12XX_RX_OK)
             {
-                uint8_t const FIFOaddr = GetRxBufferAddr(radio[secondRadioIdx]);
-                hal.ReadBuffer (FIFOaddr, RXdataBufferSecond, PayloadLength, radio[secondRadioIdx]);
-                hasSecondRadioGotData = true;
+                uint8_t FIFOaddr = 0;
+                if (GetRxBufferAddr(radio[secondRadioIdx], &FIFOaddr))
+                {
+                    hal.ReadBuffer(FIFOaddr, RXdataBufferSecond, PayloadLength, radio[secondRadioIdx]);
+                    hasSecondRadioGotData = true;
+                }
             }
         }
     }

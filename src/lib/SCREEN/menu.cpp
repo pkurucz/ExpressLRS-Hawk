@@ -2,6 +2,7 @@
 #include "TFT/tftdisplay.h"
 
 #include "TXModuleEndpoint.h"
+#include "rxtx_intf.h"
 #include "config.h"
 #include "helpers.h"
 #include "logging.h"
@@ -70,7 +71,7 @@ static void displayIdleScreen(bool init)
     message_index_t disp_message;
     if (connectionState == noCrossfire || connectionState > FAILURE_STATES) {
         disp_message = MSG_ERROR;
-    } else if(handset->IsArmed()) {
+    } else if(isArmed) {
         disp_message = MSG_ARMED;
     } else if(connectionState == connected) {
         if (connectionHasModelMatch) {
@@ -319,7 +320,7 @@ static void executeBLE(bool init)
 static void exitBLE(bool init)
 {
     if (connectionState == bleJoystick) {
-        rebootTime = millis() + 200;
+        scheduleRebootTime(200);
     }
 }
 
@@ -332,7 +333,7 @@ static void displayWiFiConfirm(bool init)
 static void exitWiFi(bool init)
 {
     if (connectionState == wifiUpdate) {
-        rebootTime = millis() + 200;
+        scheduleRebootTime(200);
     }
 }
 
@@ -570,10 +571,10 @@ fsm_state_event_t const wifi_menu_events[] = {MENU_EVENTS(wifi_menu_fsm)};
 
 fsm_state_entry_t const main_menu_fsm[] = {
     {STATE_PACKET, nullptr, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
-    {STATE_SWITCH, nullptr, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
+    {STATE_TELEMETRY, [](){return !firmwareOptions.is_airport && config.GetLinkMode() != TX_MAVLINK_MODE;}, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
+    {STATE_SWITCH, [](){return !firmwareOptions.is_airport && config.GetLinkMode() != TX_MAVLINK_MODE;}, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
     {STATE_ANTENNA, [](){return isDualRadio();}, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
     {STATE_POWER, nullptr, displayMenuScreen, 20000, power_menu_events, ARRAY_SIZE(power_menu_events)},
-    {STATE_TELEMETRY, [](){return !firmwareOptions.is_airport;}, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
     {STATE_POWERSAVE, [](){return OPT_HAS_GSENSOR && !firmwareOptions.is_airport;}, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
     {STATE_SMARTFAN, [](){return OPT_HAS_THERMAL;}, displayMenuScreen, 20000, value_menu_events, ARRAY_SIZE(value_menu_events)},
     {STATE_JOYSTICK, nullptr, displayMenuScreen, 20000, ble_menu_events, ARRAY_SIZE(ble_menu_events)},

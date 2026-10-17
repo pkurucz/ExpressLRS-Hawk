@@ -23,7 +23,6 @@
 
 // Radio Antenna
 #define GPIO_PIN_ANT_CTRL hardware_pin(HARDWARE_ant_ctrl)
-#define GPIO_PIN_ANT_CTRL_COMPL hardware_pin(HARDWARE_ant_ctrl_compl)
 
 // Radio power
 #define GPIO_PIN_PA_ENABLE hardware_pin(HARDWARE_power_enable)
@@ -103,7 +102,6 @@
 #define OPT_HAS_SCREEN (hardware_int(HARDWARE_screen_type) > 0)
 #define OPT_HAS_OLED_I2C (hardware_int(HARDWARE_screen_type)==1)
 #define OPT_HAS_OLED_SPI (hardware_int(HARDWARE_screen_type)==2)
-#define OPT_HAS_OLED_SPI_SMALL (hardware_int(HARDWARE_screen_type)==3)
 #define OPT_HAS_TFT_SCREEN (hardware_int(HARDWARE_screen_type)==4)
 
 #define GPIO_PIN_SCREEN_CS hardware_pin(HARDWARE_screen_cs)         // SPI
@@ -114,6 +112,7 @@
 #define GPIO_PIN_SCREEN_SDA hardware_pin(HARDWARE_screen_sda)       // I2C data
 #define GPIO_PIN_SCREEN_BL hardware_pin(HARDWARE_screen_bl)         // Backlight
 #define OPT_SCREEN_REVERSED hardware_flag(HARDWARE_screen_reversed)
+#define OPT_SCREEN_MIRROR hardware_flag(HARDWARE_screen_mirror)
 
 // Backpack
 #define OPT_USE_TX_BACKPACK hardware_flag(HARDWARE_use_backpack)

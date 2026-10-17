@@ -106,11 +106,11 @@ public:
     /**
      * Constructs a CRSF link statistics packet and populates the provided buffer.
      *
-     * @param buffer Pointer to the buffer where the constructed packet will be stored.
+     * @param frame  Pointer to the frame buffer where the constructed packet will be stored.
      *               It is the caller's responsibility to ensure that the buffer
-     *               has sufficient size to hold the generated packet.
+     *               has sufficient size to hold the entire generated packet.
      */
-    void makeLinkStatisticsPacket(uint8_t *buffer);
+    void makeLinkStatisticsPacket(crsf_header_t *frame);
 
     /**
      * Constructs an MSPv2 request frame and initializes it with the provided function and payload.
@@ -146,6 +146,5 @@ private:
 
 // The global instance of the endpoint
 extern CRSFRouter crsfRouter;
-extern elrsLinkStatistics_t linkStats;
 
 #endif //CRSF_ROUTER_H

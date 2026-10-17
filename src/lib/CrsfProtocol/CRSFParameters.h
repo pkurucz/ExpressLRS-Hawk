@@ -1,7 +1,5 @@
 #pragma once
 
-#include "targets.h"
-
 #include "crsf_protocol.h"
 
 #include <functional>
@@ -132,7 +130,7 @@ struct elrsStatusParameter
             LUA_FIELD_HIDE(fld)      \
     }
 
-typedef std::function<void(propertiesCommon *item, uint8_t arg)> parameterHandlerCallback;
+typedef std::function<void(propertiesCommon *item, int32_t arg)> parameterHandlerCallback;
 
 uint8_t findSelectionLabel(const selectionParameter *parameter, char *outArray, uint8_t value);
 

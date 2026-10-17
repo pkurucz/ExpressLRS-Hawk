@@ -1,10 +1,9 @@
 import {html, LitElement} from "lit"
 import {customElement, state} from "lit/decorators.js"
-import '../assets/mui.js'
 import {_renderOptions} from "../utils/libs.js"
 import {elrsState, saveOptionsAndConfig} from "../utils/state.js"
-import {PWM_MODE_SERIAL, PWM_MODE_SERIAL2RX, PWM_MODE_SERIAL2TX} from "./connections-panel.js";
-import {SERIAL_OPTIONS1, SERIAL_OPTIONS2} from "../utils/globals.js";
+import {PWM_MODE_SERIAL, PWM_MODE_SERIAL2RX, PWM_MODE_SERIAL2TX} from "./connections-panel.js"
+import {SERIAL_OPTIONS1, SERIAL_OPTIONS2} from "../utils/globals.js"
 
 @customElement('serial-panel')
 class SerialPanel extends LitElement {
@@ -26,6 +25,7 @@ class SerialPanel extends LitElement {
         this.sbusFailsafe = elrsState.config['sbus-failsafe']
         this.djiArmed = elrsState.options['dji-permanently-armed']
         this._saveSerial = this._saveSerial.bind(this)
+        this._setSbusFailsafe = this._setSbusFailsafe.bind(this)
         return this
     }
 
@@ -74,9 +74,9 @@ class SerialPanel extends LitElement {
                         </ul>
                         <br/>
                         <div class="mui-select">
-                            <select name='serial-failsafe'>
-                                <option value='0'>No Pulses</option>
-                                <option value='1'>Last Position</option>
+                            <select name='serial-failsafe'
+                                    @change=${this._setSbusFailsafe}>
+                                ${_renderOptions(['No Pulses', 'Last Position'], this.sbusFailsafe)}
                             </select>
                             <label>SBUS Failsafe</label>
                         </div>
@@ -98,25 +98,33 @@ class SerialPanel extends LitElement {
             </div>
             `: html`
             <div class="mui-panel info-bg">
-                This is a PWM receiver and none of the pins have been configured as serial IO pins.<br>
-                To enable serial IO, go to the <a href="#connections">connections</a> menu and configure one or more pins as Serial RX or TX.
+                ${this._canConfigureSerialOnPwm() || elrsState.settings.has_serial_pins ? 
+                    html`This is a PWM receiver and none of the pins have been configured as serial IO pins.<br>
+                    To enable serial IO, go to the <a href="#connections">connections</a> menu and configure one or more pins as Serial RX, Serial TX, Serial2 RX, or Serial2 TX.
+                    ` : html`This receiver does not have any serial-capable PWM pins available.`
+                }
             </div>
             `}
         `
     }
 
+    _canConfigureSerialOnPwm() {
+        if (!elrsState.config['pwm']) return false
+        return elrsState.config.pwm.some((pwm) => (pwm.features & (3 | 96)) !== 0)
+    }
+
     _hasSerial1() {
-        // If there's no PWM pins then serial must be enabled
+        // If theres no PWM pins then serial must be enabled
         if (!elrsState.config['pwm']) return true
         // If a PWM pin is defined as serial, then it should be enabled
         for(const pwm of elrsState.config.pwm) {
             const mode = (pwm.config >> 16) & 0xF
-            if (mode === PWM_MODE_SERIAL)
+            if (mode === PWM_MODE_SERIAL && (pwm.features & 3) !== 0)
                 return true
         }
         // If any of the PWM pins are defined to support serial (but it's not selected) then disabled serial
         for(const pwm of elrsState.config.pwm) {
-            if (pwm.features & 3 !== 0)
+            if ((pwm.features & 3) !== 0)
                 return false
         }
         // No PWM pins are defined as serial so use what the hardware dictates
@@ -129,14 +137,14 @@ class SerialPanel extends LitElement {
         }
         for(const pwm of elrsState.config.pwm) {
             const mode = (pwm.config >> 16) & 15
-            if (mode === PWM_MODE_SERIAL2RX || mode === PWM_MODE_SERIAL2TX)
+            if ((mode === PWM_MODE_SERIAL2RX || mode === PWM_MODE_SERIAL2TX) && (pwm.features & 96) !== 0)
                 return true
         }
         return false
     }
 
     _updateSerial1(e) {
-        this.serial1Protocol = parseInt(e.target.value)
+        this.serial1Protocol = Number(e.target.value)
         this.isAirport = this.serial1Protocol === this.PROTOCOL_AIRPORT
         if (this.serial1Protocol === 0 || this.serial1Protocol === 1) {
             this.baudRate = 420000
@@ -145,7 +153,11 @@ class SerialPanel extends LitElement {
     }
 
     _updateSerial2(e) {
-        this.serial2Protocol = parseInt(e.target.value)
+        this.serial2Protocol = Number(e.target.value)
+    }
+
+    _setSbusFailsafe(e) {
+        this.sbusFailsafe = Number(e.target.value)
     }
 
     _displayBaudRate() {

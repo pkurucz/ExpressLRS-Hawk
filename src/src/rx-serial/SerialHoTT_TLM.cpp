@@ -252,7 +252,7 @@ void SerialHoTT_TLM::scheduleCRSFtelemetry(uint32_t now)
         sendCRSFgps(now);
     }
 
-    // HoTT GAM, EAM, ESC -> send battery, Rpm, Temp, Cells, Volt, Airspee packet
+    // HoTT GAM, EAM, ESC -> send battery, Rpm, Temp, Cells, Volt
     if (device[GAM].present || device[EAM].present || device[ESC].present)
     {
         sendCRSFbattery(now);
@@ -274,8 +274,10 @@ void SerialHoTT_TLM::scheduleCRSFtelemetry(uint32_t now)
         sendCRSFtemp(now, deviceToUse);
         sendCRSFcells(now, deviceToUse);
         sendCRSFvolt(now, deviceToUse);
-        sendCRSFairspeed(now, deviceToUse);
     }
+
+    // send Airspeed
+    sendCRSFairspeed(now);
 }
 
 void SerialHoTT_TLM::sendCRSFvario(uint32_t now)
@@ -547,23 +549,39 @@ void SerialHoTT_TLM::sendCRSFvolt(uint32_t now, HoTTDevices device)
     lastVoltCRC = crc;
 }
 
-void SerialHoTT_TLM::sendCRSFairspeed(uint32_t now, HoTTDevices device)
+void SerialHoTT_TLM::sendCRSFairspeed(uint32_t now)
 {
+    uint16_t airSpeed;
+
+    if (device[VARIO].present)
+    {
+        airSpeed = htobe16(vario.compassDir * HOTT_SPEED_SCALE_1_2);
+    }
+    else if (device[GPS].present)
+    {
+        airSpeed = htobe16(*((uint16_t *)(&gps.pitch)) * HOTT_SPEED_SCALE_1_1);
+    }
+    else if (device[EAM].present)
+    {
+        airSpeed = htobe16(eam.speed * HOTT_SPEED_SCALE_1_1);
+    }
+    else if (device[GAM].present)
+    {
+        airSpeed = htobe16(gam.speed * HOTT_SPEED_SCALE_1_1);
+    }
+    else if (device[ESC].present)
+    {
+        airSpeed = htobe16(esc.speed * HOTT_SPEED_SCALE_1_1);
+    }
+    else
+    {
+        return;
+    }
+
     // prepare CRSF telemetry packet
     CRSF_MK_FRAME_T(crsf_sensor_airspeed_t) crsfAirspeed = {0};
 
-    if (device == EAM)
-    {
-        crsfAirspeed.p.speed = htobe16(eam.speed * HOTT_SPEED_SCALE_EAM);
-    }
-    else if (device == GAM)
-    {
-        crsfAirspeed.p.speed = htobe16(gam.speed * HOTT_SPEED_SCALE_GAM);
-    }
-    else if (device == ESC)
-    {
-        crsfAirspeed.p.speed = htobe16(esc.speed * HOTT_SPEED_SCALE_EAM);
-    }
+    crsfAirspeed.p.speed = airSpeed;
 
     crsfRouter.SetHeaderAndCrc((crsf_header_t *)&crsfAirspeed, CRSF_FRAMETYPE_AIRSPEED, CRSF_FRAME_SIZE(sizeof(crsf_sensor_airspeed_t)));
 
@@ -772,21 +790,6 @@ uint16_t SerialHoTT_TLM::getHoTTMSLaltitude()
     }
 
     return 0;
-}
-
-uint32_t SerialHoTT_TLM::htobe24(uint32_t val)
-{
-#if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-    return val;
-#else
-    uint8_t *ptrByte = (uint8_t *)&val;
-
-    uint8_t swp = ptrByte[0];
-    ptrByte[0] = ptrByte[2];
-    ptrByte[2] = swp;
-
-    return val;
-#endif
 }
 
 #endif

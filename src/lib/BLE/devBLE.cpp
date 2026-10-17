@@ -21,7 +21,7 @@ void BluetoothJoystickUpdateValues()
         int16_t data[8];
         for (uint8_t i = 0; i < 8; i++)
         {
-            data[i] = map(ChannelData[i], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, bleGamepad->configuration.getAxesMin(), bleGamepad->configuration.getAxesMax());
+            data[i] = map(ChannelData[i], CRSF_CHANNEL_VALUE_STD_MIN, CRSF_CHANNEL_VALUE_STD_MAX, bleGamepad->configuration.getAxesMin(), bleGamepad->configuration.getAxesMax());
         }
         bleGamepad->setAxes(data[0], data[1], data[4], data[5], data[2], data[3], data[6], data[7]);
 
@@ -58,6 +58,7 @@ void BluetoothJoystickBegin()
     gamepadConfig.setControllerType(CONTROLLER_TYPE_JOYSTICK); // CONTROLLER_TYPE_JOYSTICK, CONTROLLER_TYPE_GAMEPAD (DEFAULT), CONTROLLER_TYPE_MULTI_AXIS
     gamepadConfig.setWhichAxes(true, true, true, true, true, true, true, true);	// Enable all axes
     gamepadConfig.setButtonCount(8);
+    gamepadConfig.setHatSwitchCount(0);
 
     bleGamepad = new BleGamepad("ELRS Joystick", "ELRS", 100);
     bleGamepad->setTXPowerLevel(9);

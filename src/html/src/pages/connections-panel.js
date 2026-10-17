@@ -1,13 +1,12 @@
-import {html, LitElement} from "lit";
-import {customElement} from "lit/decorators.js";
-import '../assets/mui.js';
-import {elrsState, saveConfig} from "../utils/state.js";
-import {_} from "../utils/libs.js";
-import {postWithFeedback} from "../utils/feedback.js";
+import {html, LitElement} from "lit"
+import {customElement} from "lit/decorators.js"
+import {elrsState, saveConfig} from "../utils/state.js"
+import {_} from "../utils/libs.js"
+import {postWithFeedback} from "../utils/feedback.js"
 
-export const PWM_MODE_SERIAL = 10;
-export const PWM_MODE_SERIAL2RX = 14;
-export const PWM_MODE_SERIAL2TX = 15;
+export const PWM_MODE_SERIAL = 10
+export const PWM_MODE_SERIAL2RX = 14
+export const PWM_MODE_SERIAL2TX = 15
 
 @customElement('connections-panel')
 class ConnectionsPanel extends LitElement {
@@ -16,6 +15,7 @@ class ConnectionsPanel extends LitElement {
     pinTxIndex = undefined
 
     createRenderRoot() {
+        this._onFormEdited = this._onFormEdited.bind(this)
         return this
     }
 
@@ -43,7 +43,7 @@ class ConnectionsPanel extends LitElement {
             <div class="connections-panel-root">
                 <div class="mui-panel mui--text-title">PWM Pin Functions</div>
                 <div class="mui-panel warning-bg connections-mobile-warning">
-                    <div class="mui--text-title" style="margin-bottom: 8px;">Rotate to landscape</div>
+                    <div class="mui--text-title connections-mobile-title">Rotate to landscape</div>
                     <p>
                         The connections panel is too wide for small screens in portrait mode. Please rotate your device to
                         landscape mode to view and edit the settings.
@@ -51,7 +51,7 @@ class ConnectionsPanel extends LitElement {
                 </div>
                 <div class="mui-panel connections-panel">
                     Set PWM output mode and failsafe positions.
-                    <form>
+                    <form @input=${this._onFormEdited} @change=${this._onFormEdited}>
                         <div class="mui-panel pwmpnl">
                             <table class="pwmtbl mui-table">
                                 <thead>
@@ -65,7 +65,9 @@ class ConnectionsPanel extends LitElement {
                             </table>
                         </div>
                         <div>
-                            <button class="mui-btn mui-btn--small mui-btn--primary" @click="${this._savePwmConfig}">Save</button>
+                            <button class="mui-btn mui-btn--small mui-btn--primary"
+                                    ?disabled=${!this.checkChanged()}
+                                    @click="${this._savePwmConfig}">Save</button>
                             ${elrsState.options.customised ? html`
                                 <button class="mui-btn mui-btn--small mui-btn--danger mui--pull-right"
                                         @click="${postWithFeedback('Reset PWM Configuration', 'An error occurred resetting the configuration', '/reset?config', null)}"
@@ -83,12 +85,12 @@ class ConnectionsPanel extends LitElement {
                         </li>
                         <li><b>Mode:</b> Output frequency, 10KHz 0-100% duty cycle, binary On/Off, DShot, Serial, or I2C
                             (some options are pin dependant)
+                            <ul>
+                                <li>When enabling serial pins, be sure to select the <b>Serial Protocol</b> below and <b>UART
+                                    baud</b> on the <b><a href="#serial">Serial</a></b> page in the menu
+                                </li>
+                            </ul>
                         </li>
-                        <ul>
-                            <li>When enabling serial pins, be sure to select the <b>Serial Protocol</b> below and <b>UART
-                                baud</b> on the <b><a href="#serial">Serial</a></b> page in the menu
-                            </li>
-                        </ul>
                         <li><b>Input:</b> Input channel from the handset</li>
                         <li><b>Invert:</b> Invert input channel position</li>
                         <li><b>Stretch:</b> Stretch pulse width from mode limits to 500-2500us</li>
@@ -112,7 +114,7 @@ class ConnectionsPanel extends LitElement {
                     </ul>
                 </div>
             </div>
-        `;
+        `
     }
 
     firstUpdated() {
@@ -163,14 +165,14 @@ class ConnectionsPanel extends LitElement {
         elrsState.config.pwm.forEach((item, index) => {
             const failsafe = (item.config & 2047) + 476; // 11 bits
             const ch = (item.config >> 11) & 15; // 4 bits
-            const inv = (item.config >> 15) & 1;
+            const inv = (item.config >> 15) & 1
             const mode = (item.config >> 16) & 15; // 4 bits
-            const stretch = (item.config >> 20) & 1;
+            const stretch = (item.config >> 20) & 1
             const failsafeMode = (item.config >> 22) & 3; // 2 bits
             const features = item.features
             const modes = ['50Hz', '60Hz', '100Hz', '160Hz', '333Hz', '400Hz', '10KHzDuty', 'On/Off']
             if (features & 16) {
-                modes.push('DShot', 'DShot-3D');
+                modes.push('DShot', 'DShot-3D')
             } else {
                 modes.push(undefined, undefined)
             }
@@ -188,23 +190,24 @@ class ConnectionsPanel extends LitElement {
             modes.push(undefined)  // true PWM (not yet supported)
             modes.push(features & 32 ? 'Serial2 RX' : undefined)
             modes.push(features & 64 ? 'Serial2 TX' : undefined)
+            const selectedMode = modes[mode] ? mode : 0
 
             htmlFields.push(html`
                 <tr><td class="mui--text-center mui--text-title">${index + 1}</td>
                 <td>${this._generateFeatureBadges(features)}</td>
-                <td>${this._enumSelectGenerate(`pwm_${index}_mode`, mode, modes, (e) => {this._pinModeChange(e.target, index)})}</td>
+                <td>${this._enumSelectGenerate(`pwm_${index}_mode`, selectedMode, modes, (e) => {this._pinModeChange(e.target, index)})}</td>
                 <td>${this._enumSelectGenerate(`pwm_${index}_ch`, ch,
                         ['ch1', 'ch2', 'ch3', 'ch4',
                             'ch5 (AUX1)', 'ch6 (AUX2)', 'ch7 (AUX3)', 'ch8 (AUX4)',
                             'ch9 (AUX5)', 'ch10 (AUX6)', 'ch11 (AUX7)', 'ch12 (AUX8)',
                             'ch13 (AUX9)', 'ch14 (AUX10)', 'ch15 (AUX11)', 'ch16 (AUX12)'])}</td>
                 <td><div class="mui-checkbox mui--text-center"><input type="checkbox" id="pwm_${index}_inv" ?checked="${inv}"></div></td>
-                <td><div class="mui-checkbox mui--text-center"><input type="checkbox" id="pwm_${index}_stretch" ?checked="${stretch}"}></div></td>
+                <td><div class="mui-checkbox mui--text-center"><input type="checkbox" id="pwm_${index}_stretch" ?checked="${stretch}"></div></td>
                 <td>${this._enumSelectGenerate(`pwm_${index}_fsmode`, failsafeMode, ['Set Position', 'No Pulses', 'Last Position'],
                         (e) => {this._failsafeModeChange(e.target, index)})}</td>
                 <td><div class="mui-textfield compact"><input id="pwm_${index}_fs" value="${failsafe}" size="6" class="pwmitm" /></div></td></tr>
-            `);
-            this.pinModes[index] = mode
+            `)
+            this.pinModes[index] = selectedMode
         });
         return htmlFields
     }
@@ -219,7 +222,7 @@ class ConnectionsPanel extends LitElement {
         }
 
         // disable extra fields for serial & i2c pins
-        setDisabled(index, Number.parseInt(pinMode.value) >= PWM_MODE_SERIAL);
+        setDisabled(index, Number.parseInt(pinMode.value) >= PWM_MODE_SERIAL)
 
         const updateOthers = (value, enable) => {
             if (value > PWM_MODE_SERIAL) { // disable others
@@ -286,7 +289,11 @@ class ConnectionsPanel extends LitElement {
         }
     }
 
-    _getPwmFormData() {
+    _onFormEdited() {
+        this.requestUpdate()
+    }
+
+    _getPwmFormData(normalizeFields = false) {
         let ch = 0
         let inField
         const outData = []
@@ -298,9 +305,9 @@ class ConnectionsPanel extends LitElement {
             const failsafeField = _(`pwm_${ch}_fs`)
             const failsafeModeField = _(`pwm_${ch}_fsmode`)
             let failsafe = failsafeField.value
-            if (failsafe > 2523) failsafe = 2523;
-            if (failsafe < 476) failsafe = 476;
-            failsafeField.value = failsafe
+            if (failsafe > 2523) failsafe = 2523
+            if (failsafe < 476) failsafe = 476
+            if (normalizeFields) failsafeField.value = failsafe
             let failsafeMode = failsafeModeField.value
 
             const raw = (failsafeMode << 22) | (stretch << 20) | (mode << 16) | (invert << 15) | (inChannel << 11) | (failsafe - 476)
@@ -312,9 +319,9 @@ class ConnectionsPanel extends LitElement {
     }
 
     _savePwmConfig(e) {
-        e.preventDefault();
-        const data = this._getPwmFormData()
-        saveConfig({'pwm': data})
+        e.preventDefault()
+        const data = this._getPwmFormData(true)
+        saveConfig({'pwm': data}, () => this.requestUpdate())
     }
 
     checkChanged() {
