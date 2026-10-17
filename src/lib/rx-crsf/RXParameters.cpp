@@ -21,7 +21,7 @@ extern bool BindingModeRequest;
 extern RXEndpoint crsfReceiver;
 
 #if defined(Regulatory_Domain_EU_CE_2400)
-#if defined(RADIO_LR1121)
+#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
 char strPowerLevels[] = "10/10;25/25;25/50;25/100;25/250;25/500;25/1000;25/2000;MatchTX ";
 #else
 char strPowerLevels[] = "10;25;50;100;250;500;1000;2000;MatchTX ";
@@ -35,7 +35,7 @@ static char pwmModes[] = "50Hz;60Hz;100Hz;160Hz;333Hz;400Hz;10kHzDuty;On/Off;DSh
 static selectionParameter luaSerialProtocol = {
     {"Protocol", CRSF_TEXT_SELECTION},
     0, // value
-    "CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;MAVLink;DisplayPort;GPS",
+  "CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;MAVLink;DisplayPort;GPS;Scorpion",
     STR_EMPTYSPACE
 };
 
@@ -43,7 +43,7 @@ static selectionParameter luaSerialProtocol = {
 static selectionParameter luaSerial1Protocol = {
     {"Protocol2", CRSF_TEXT_SELECTION},
     0, // value
-    "Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;Tramp;SmartAudio;DisplayPort;GPS",
+  "Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;Tramp;SmartAudio;DisplayPort;GPS;Scorpion",
     STR_EMPTYSPACE
 };
 #endif
@@ -86,9 +86,9 @@ static selectionParameter luaTlmPower = {
 };
 
 static selectionParameter luaAntennaMode = {
-    {"Ant. Mode", CRSF_TEXT_SELECTION},
+    {"Antenna Mode", CRSF_TEXT_SELECTION},
     0, // value
-    "Antenna A;Antenna B;Diversity",
+    "Antenna 1;Antenna 2;Diversity",
     STR_EMPTYSPACE
 };
 
